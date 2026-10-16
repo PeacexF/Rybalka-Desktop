@@ -1,0 +1,46 @@
+// Water map spec for reservoir/beach (2:1 panorama). Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/reservoir/beach/map.ron assets/locations/reservoir/beach/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (1080, 540),
+    // Must match content/locations/reservoir.ron.
+    view: (horizonY: 0.255, shoreY: 1.0, nearM: 3.0, fov: 1.35),
+    water: [[
+        (0.0, 0.262), (0.12, 0.268), (0.16, 0.29), (0.3, 0.305), (0.45, 0.335),
+        (0.55, 0.345), (0.65, 0.38), (0.7, 0.4), (0.8, 0.42), (0.9, 0.44),
+        (1.0, 0.46), (1.0, 1.0), (0.0, 1.0),
+    ]],
+    land: [
+        // Stone groynes.
+        [(0.16, 0.395), (0.35, 0.37), (0.5, 0.36), (0.7, 0.365), (0.71, 0.385), (0.5, 0.40), (0.3, 0.405), (0.16, 0.40)],
+        [(0.18, 0.32), (0.47, 0.30), (0.5, 0.33), (0.18, 0.33)],
+    ],
+    depth: (near: 1.8, far: 7.0, far_at_m: 45.0, noise: 0.5, sand_within_m: 0.0),
+    default_zone: 1,
+    features: [
+        // Around the groynes: stones and the eddy behind them.
+        (
+            shape: Polygon([(0.14, 0.43), (0.72, 0.41), (0.72, 0.35), (0.16, 0.30)]),
+            soft: 0.02,
+            depth: Some(Set(2.5)),
+            zone: Some(2),
+            bottom: Some(Stone),
+        ),
+        // Beach shallows on the right.
+        (
+            shape: Polygon([(0.7, 0.4), (1.0, 0.46), (1.0, 0.62), (0.72, 0.5)]),
+            soft: 0.04,
+            depth: Some(Set(1.0)),
+            zone: Some(3),
+            bottom: Some(Sand),
+        ),
+        // The old channel out on the left.
+        (
+            shape: Ellipse(cx: 0.06, cy: 0.28, rx: 0.12, ry: 0.02),
+            soft: 0.01,
+            depth: Some(Add(3.0)),
+            zone: Some(4),
+        ),
+    ],
+)

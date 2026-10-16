@@ -1,9 +1,11 @@
 //! Photo helpers for location backgrounds.
 //!
 //! ```text
-//! photo prepare <in> <out.jpg> [--crop-top F] [--crop-bottom F]
-//!     Crop to 16:9 (trimming the given fractions of height first, then
-//!     centring), resize to 1920x1080 and save as JPEG (q=88).
+//! photo prepare <in> <out.jpg> [--crop-top F] [--crop-bottom F] [--aspect A] [--shift-x F]
+//!     Crop to 16:9 or a wider panorama aspect `A` (trimming the given
+//!     fractions of height first, then centring, or shifting the crop by
+//!     `F` of the spare width, -1..1), resize to 1080 px high and save as
+//!     JPEG (q=88).
 //! photo sheet <out.jpg> <images...>
 //!     Tile images into a 5-column contact sheet (in argument order).
 //! photo grid <in> <out.jpg>
@@ -16,7 +18,6 @@ use std::path::Path;
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, RgbImage};
 
-const OUT_W: u32 = 1920;
 const OUT_H: u32 = 1080;
 
 fn main() {
@@ -47,17 +48,26 @@ fn prepare(input: &str, output: &str, opts: &[String]) {
     let top = (f64::from(h) * flag(opts, "--crop-top")) as u32;
     let bottom = (f64::from(h) * flag(opts, "--crop-bottom")) as u32;
     let h2 = h - top - bottom;
-    // Crop to 16:9 inside the remaining band, centred horizontally/vertically.
-    let (cw, ch) = if f64::from(w) / f64::from(h2) > 16.0 / 9.0 {
-        ((f64::from(h2) * 16.0 / 9.0) as u32, h2)
-    } else {
-        (w, (f64::from(w) * 9.0 / 16.0) as u32)
+    let aspect = match flag(opts, "--aspect") {
+        a if a > 0.0 => a,
+        _ => 16.0 / 9.0,
     };
-    let x = (w - cw) / 2;
+    // Crop to the aspect inside the remaining band, centred vertically.
+    let (cw, ch) = if f64::from(w) / f64::from(h2) > aspect {
+        ((f64::from(h2) * aspect) as u32, h2)
+    } else {
+        (w, (f64::from(w) / aspect) as u32)
+    };
+    let shift = flag(opts, "--shift-x").clamp(-1.0, 1.0);
+    let x = ((f64::from(w - cw) / 2.0) * (1.0 + shift)) as u32;
     let y = top + (h2 - ch) / 2;
     let out = img
         .crop_imm(x, y, cw, ch)
-        .resize_exact(OUT_W, OUT_H, FilterType::Lanczos3)
+        .resize_exact(
+            (f64::from(OUT_H) * aspect).round() as u32,
+            OUT_H,
+            FilterType::Lanczos3,
+        )
         .to_rgb8();
     save_jpeg(&out, output);
     println!("{input}: {w}x{h} -> crop {cw}x{ch}+{x}+{y} -> {output}");

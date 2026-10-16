@@ -18,4 +18,8 @@ rodKind: RodKind | null,
 /**
  * Terminal tackle only: which kind.
  */
-tackleKind: TackleKind | null, };
+tackleKind: TackleKind | null, 
+/**
+ * Price at a fishing base, if it sells this at all.
+ */
+localPrice: number | null, };

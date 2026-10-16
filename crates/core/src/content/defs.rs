@@ -160,7 +160,28 @@ pub enum BaitKind {
 pub struct LocationDef {
     pub id: String,
     pub name: String,
+    pub kind: WaterKind,
+    #[serde(default)]
+    pub description: String,
+    /// Rank needed to buy a pass.
+    #[serde(default)]
+    pub rank: u32,
+    /// Pass price per day.
+    #[serde(default)]
+    pub price_per_day: f64,
+    /// Longest pass, days.
+    #[serde(default = "week")]
+    pub max_days: u32,
     pub spots: Vec<SpotDef>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum WaterKind {
+    Pond,
+    Lake,
+    River,
+    Reservoir,
 }
 
 impl LocationDef {
@@ -199,6 +220,10 @@ pub struct View {
     pub shore_y: f64,
     /// Distance from the angler to the water at `shore_y`, metres.
     pub near_m: f64,
+    /// Horizontal field of view: at distance `d` the image is `fov * d` metres
+    /// wide (1.2 for a 16:9 photo; wider panoramas need more).
+    #[serde(default = "default_fov")]
+    pub fov: f64,
 }
 
 impl View {
@@ -227,6 +252,14 @@ pub struct ZoneDef {
 
 fn one() -> u32 {
     1
+}
+
+fn default_fov() -> f64 {
+    1.2
+}
+
+fn week() -> u32 {
+    7
 }
 
 #[cfg(test)]
@@ -272,6 +305,7 @@ mod tests {
             horizon_y: 0.4,
             shore_y: 0.9,
             near_m: 3.0,
+            fov: 1.2,
         };
         assert!((v.distance_at(0.9) - 3.0).abs() < 1e-9);
         for d in [3.0, 10.0, 25.0, 60.0] {

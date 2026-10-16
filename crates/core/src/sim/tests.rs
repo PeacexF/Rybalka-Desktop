@@ -37,6 +37,11 @@ fn content() -> Arc<Content> {
     let locations = vec![LocationDef {
         id: "pond".into(),
         name: "Пруд".into(),
+        kind: WaterKind::Pond,
+        description: String::new(),
+        rank: 0,
+        price_per_day: 0.0,
+        max_days: 7,
         spots: vec![SpotDef {
             id: "dam".into(),
             name: "Плотина".into(),
@@ -46,6 +51,7 @@ fn content() -> Arc<Content> {
                 horizon_y: 0.4,
                 shore_y: 0.9,
                 near_m: 3.0,
+                fov: 1.2,
             },
             zones: vec![ZoneDef {
                 id: 1,
@@ -367,7 +373,9 @@ fn economy_world() -> World {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content");
     let c = Arc::new(crate::content::load_dir(&dir).unwrap());
     let mut w = World::new(c.clone(), 77);
-    w.set_profile(Some(crate::profile::Profile::starter(&c)));
+    let mut p = crate::profile::Profile::starter(&c);
+    p.buy_trip(&c, "pond", 3).unwrap();
+    w.set_profile(Some(p));
     w
 }
 
@@ -472,7 +480,7 @@ fn feeder_without_groundbait_lays_no_patch() {
 }
 
 #[test]
-fn leaving_water_sells_and_keeps_settings() {
+fn leaving_water_keeps_catch_and_settings() {
     let mut w = economy_world();
     w.go_fishing("pond", "willow", map()).unwrap();
     w.input(Input::SetFloatDepth { rod: 0, m: 2.2 }).unwrap();
@@ -489,16 +497,40 @@ fn leaving_water_sells_and_keeps_settings() {
     for _ in 0..200 {
         w.step();
     }
-    let money = w.profile().unwrap().money;
-    let report = w.leave_water().unwrap();
-    assert_eq!(report.lines.len(), 1, "fish in the landing net is kept");
-    assert!(report.money > 0.0);
+    w.leave_water().unwrap();
     let p = w.profile().unwrap();
-    assert!((p.money - money - report.money).abs() < 1e-9);
+    assert_eq!(p.keepnet.len(), 1, "fish in the landing net is kept");
     assert!((p.slots[0].float_depth_m - 2.2).abs() < 1e-9);
     assert!(p.clock_min > crate::clock::Clock::default().minutes);
-    assert!(p.at.is_none() && p.keepnet.is_empty());
+    assert!(p.at.is_none() && w.session().is_none());
+
+    let money = w.profile().unwrap().money;
+    let report = w.sell_catch().unwrap();
+    assert_eq!(report.lines.len(), 1);
+    assert!((w.profile().unwrap().money - money - report.money).abs() < 1e-9);
+    assert!(w.profile().unwrap().keepnet.is_empty());
+}
+
+#[test]
+fn no_pass_no_fishing() {
+    let mut w = economy_world();
+    w.end_trip().unwrap();
+    assert_eq!(
+        w.go_fishing("pond", "willow", map()),
+        Err(SimError::NoPass("pond".into()))
+    );
+}
+
+#[test]
+fn session_ends_when_the_pass_runs_out() {
+    let mut w = economy_world();
+    let ends = w.profile().unwrap().trip.as_ref().unwrap().ends_min;
+    w.go_fishing("pond", "willow", map()).unwrap();
+    w.session.as_mut().unwrap().clock.minutes = ends - 0.5;
+    let over = run_until(&mut w, 20 * 60, |e| matches!(e, GameEvent::TripOver));
+    assert!(over.is_some());
     assert!(w.session().is_none());
+    assert!(w.profile().unwrap().trip_over());
 }
 
 #[test]

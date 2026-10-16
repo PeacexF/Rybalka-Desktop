@@ -1,0 +1,39 @@
+(
+    id: "river",
+    name: "Река Пра",
+    kind: River,
+    description: "Песчаные косы, перекаты и ямы. Голавль и язь, на рассвете бьёт жерех, в ямах — судак и лещ.",
+    rank: 2,
+    price_per_day: 120,
+    max_days: 5,
+    spots: [
+        (
+            id: "sand",
+            name: "Песчаная коса",
+            background: "locations/river/sand/bg.jpg",
+            map: "locations/river/sand/map.png",
+            // Must match assets/locations/river/sand/map.ron
+            view: (horizonY: 0.47, shoreY: 1.0, nearM: 2.0),
+            zones: [
+                (id: 1, name: "Стремнина", fish: {"chub": 1.0, "bleak": 1.0, "roach": 0.8, "ide": 0.7, "asp": 0.5, "perch": 0.4}),
+                (id: 2, name: "Перекат", fish: {"chub": 1.0, "bleak": 1.0, "asp": 0.7, "roach": 0.6, "perch": 0.5}),
+                (id: 3, name: "Подмытый берег", fish: {"chub": 1.2, "ide": 0.8, "pike": 0.6, "perch": 0.6}),
+                (id: 4, name: "Яма", fish: {"bream": 1.0, "zander": 0.8, "ide": 0.8, "ruffe": 0.6}),
+            ],
+        ),
+        (
+            id: "reach",
+            name: "Широкий плёс",
+            background: "locations/river/reach/bg.jpg",
+            map: "locations/river/reach/map.png",
+            // Must match assets/locations/river/reach/map.ron
+            view: (horizonY: 0.275, shoreY: 1.0, nearM: 3.0, fov: 1.42),
+            zones: [
+                (id: 1, name: "Плёс", fish: {"roach": 1.0, "bleak": 0.8, "bream": 0.6, "white_bream": 0.6, "asp": 0.6, "ide": 0.5}),
+                (id: 2, name: "Ивы", fish: {"chub": 1.2, "ide": 1.0, "pike": 0.7, "perch": 0.6}),
+                (id: 3, name: "Бровка русла", fish: {"bream": 1.2, "zander": 1.0, "white_bream": 0.8, "ruffe": 0.6}),
+                (id: 4, name: "Затон", fish: {"pike": 1.2, "perch": 0.8, "rudd": 0.8, "tench": 0.6}),
+            ],
+        ),
+    ],
+)

@@ -1,3 +1,4 @@
+use rybalka_core::content::View;
 use rybalka_core::map::WaterMap;
 use rybalka_core::profile::{Part, Profile, SaleReport};
 use rybalka_core::sim::{BaitInfo, LocationInfo, MenuState, ShopItem};
@@ -149,12 +150,48 @@ pub fn go_fishing(
     })?
 }
 
-/// Leave the water and sell the keepnet.
+/// Leave the water for the base (the catch stays in the keepnet).
 #[tauri::command]
-pub fn leave_water(game: State<'_, GameHandle>) -> Result<SaleReport, String> {
-    let report = game.with_world(|w| w.leave_water().map_err(|e| e.to_string()))?;
+pub fn leave_water(game: State<'_, GameHandle>) -> Result<(), String> {
+    let res = game.with_world(|w| w.leave_water().map_err(|e| e.to_string()))?;
     game.flush();
-    report
+    res
+}
+
+/// Buy a pass and travel to a water.
+#[tauri::command]
+pub fn buy_trip(game: State<'_, GameHandle>, location: String, days: u32) -> Result<(), String> {
+    let res = game.with_world(move |w| {
+        w.update_profile(|p, c| p.buy_trip(c, &location, days).map_err(|e| e.to_string()))
+            .map_err(|e| e.to_string())?
+    })?;
+    game.flush();
+    res
+}
+
+/// Sleep at the base until the next morning.
+#[tauri::command]
+pub fn sleep(game: State<'_, GameHandle>) -> Result<(), String> {
+    game.with_world(|w| {
+        w.update_profile(|p, _| p.sleep().map_err(|e| e.to_string()))
+            .map_err(|e| e.to_string())?
+    })?
+}
+
+/// Sell the keepnet at the base.
+#[tauri::command]
+pub fn sell_catch(game: State<'_, GameHandle>) -> Result<SaleReport, String> {
+    let res = game.with_world(|w| w.sell_catch().map_err(|e| e.to_string()))?;
+    game.flush();
+    res
+}
+
+/// Go back to town; the keepnet is sold.
+#[tauri::command]
+pub fn end_trip(game: State<'_, GameHandle>) -> Result<SaleReport, String> {
+    let res = game.with_world(|w| w.end_trip().map_err(|e| e.to_string()))?;
+    game.flush();
+    res
 }
 
 /// `RYBALKA_DEV_START="21.5,Rain"` starts sessions at that hour/weather
@@ -172,6 +209,39 @@ fn dev_start_override(w: &mut World) {
     w.debug = true;
     let _ = w.input(Input::Debug { hour, weather });
     w.debug = debug;
+}
+
+/// Map editor (dev builds): write the edited `map.png` of the current spot
+/// into the repo's `assets/` and use it right away.
+#[tauri::command]
+pub fn dev_save_map(
+    game: State<'_, GameHandle>,
+    root: State<'_, DataRoot>,
+    png: Vec<u8>,
+) -> Result<String, String> {
+    if !cfg!(debug_assertions) {
+        return Err("редактор карт работает только в dev-сборке".into());
+    }
+    let map = WaterMap::from_png(&png).map_err(|e| e.to_string())?;
+    let rel = game.with_world(|w| w.session().map(|s| s.spot.map.clone()))?;
+    let rel = rel.ok_or("не на водоёме")?;
+    let path = root.0.join("assets").join(&rel);
+    std::fs::write(&path, &png).map_err(|e| format!("{}: {e}", path.display()))?;
+    let path = path.canonicalize().unwrap_or(path);
+    game.with_world(move |w| {
+        w.dev_replace_map(Some(map), None)
+            .map_err(|e| e.to_string())
+    })??;
+    Ok(path.display().to_string())
+}
+
+/// Map editor: try a perspective calibration on the running session.
+#[tauri::command]
+pub fn dev_set_view(game: State<'_, GameHandle>, view: View) -> Result<(), String> {
+    game.with_world(move |w| {
+        w.dev_replace_map(None, Some(view))
+            .map_err(|e| e.to_string())
+    })?
 }
 
 #[tauri::command]

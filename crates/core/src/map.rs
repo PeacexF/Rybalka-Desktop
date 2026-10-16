@@ -62,10 +62,21 @@ impl WaterMap {
         let mut reader = decoder.read_info()?;
         let mut buf = vec![0; reader.output_buffer_size().unwrap_or(0)];
         let info = reader.next_frame(&mut buf)?;
-        if info.color_type != png::ColorType::Rgba || info.bit_depth != png::BitDepth::Eight {
+        if info.bit_depth != png::BitDepth::Eight {
             return Err(MapError::Format(info.color_type, info.bit_depth));
         }
         buf.truncate(info.buffer_size());
+        match info.color_type {
+            png::ColorType::Rgba => {}
+            // Encoders may drop a fully opaque alpha channel (all water).
+            png::ColorType::Rgb => {
+                buf = buf
+                    .chunks_exact(3)
+                    .flat_map(|p| [p[0], p[1], p[2], 255])
+                    .collect();
+            }
+            other => return Err(MapError::Format(other, info.bit_depth)),
+        }
         Ok(Self {
             width: info.width,
             height: info.height,

@@ -283,3 +283,52 @@ fn preview(spec: &Spec, noise: &Noise, bg: &str, out: &str) {
         .expect("encode preview");
     println!("preview: {out}");
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::Spec;
+
+    /// Every shipped spot: the map spec's calibration matches the content,
+    /// the map has the background's aspect ratio and only uses known zones.
+    #[test]
+    fn shipped_maps_match_content() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let content = rybalka_core::content::load_dir(&root.join("content")).unwrap();
+        for loc in &content.locations {
+            for spot in &loc.spots {
+                let name = format!("{}/{}", loc.id, spot.id);
+                let png = root.join("assets").join(&spot.map);
+                let spec_path = png.with_extension("ron");
+                let spec: Spec = ron::from_str(&std::fs::read_to_string(&spec_path).unwrap())
+                    .unwrap_or_else(|e| panic!("{name}: {e}"));
+                assert_eq!(spec.view, spot.view, "{name}: view differs from map.ron");
+
+                let (bw, bh) =
+                    image::image_dimensions(root.join("assets").join(&spot.background)).unwrap();
+                let (mw, mh) = spec.size;
+                let (ab, am) = (f64::from(bw) / f64::from(bh), f64::from(mw) / f64::from(mh));
+                assert!(
+                    (ab - am).abs() < 0.02,
+                    "{name}: map {am:.3} vs background {ab:.3}"
+                );
+
+                let map =
+                    rybalka_core::map::WaterMap::from_png(&std::fs::read(&png).unwrap()).unwrap();
+                for yi in 0..50 {
+                    for xi in 0..50 {
+                        let (x, y) = (f64::from(xi) / 50.0, f64::from(yi) / 50.0);
+                        if let Some(c) = map.sample(x, y) {
+                            assert!(
+                                spot.zone(c.zone).is_some(),
+                                "{name}: zone {} at {x},{y}",
+                                c.zone
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

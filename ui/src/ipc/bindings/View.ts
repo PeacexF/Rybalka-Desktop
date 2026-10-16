@@ -15,4 +15,9 @@ shoreY: number,
 /**
  * Distance from the angler to the water at `shore_y`, metres.
  */
-nearM: number, };
+nearM: number, 
+/**
+ * Horizontal field of view: at distance `d` the image is `fov * d` metres
+ * wide (1.2 for a 16:9 photo; wider panoramas need more).
+ */
+fov: number, };

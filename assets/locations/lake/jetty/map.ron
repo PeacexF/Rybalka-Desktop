@@ -1,0 +1,53 @@
+// Water map spec for lake/jetty. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/lake/jetty/map.ron assets/locations/lake/jetty/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/lake.ron.
+    view: (horizonY: 0.265, shoreY: 1.0, nearM: 3.5),
+    water: [[
+        (0.0, 0.305), (0.2, 0.29), (0.4, 0.278), (0.6, 0.272), (0.8, 0.268),
+        (1.0, 0.265), (1.0, 1.0), (0.0, 1.0),
+    ]],
+    land: [
+        // The jetty: walkway, side step and T-head.
+        [
+            (0.48, 1.0), (0.48, 0.80), (0.53, 0.71), (0.575, 0.71), (0.625, 0.60),
+            (0.645, 0.445), (0.565, 0.44), (0.57, 0.375), (0.845, 0.375),
+            (0.85, 0.445), (0.775, 0.445), (0.80, 0.60), (0.84, 0.84), (0.84, 0.885),
+            (0.77, 0.885), (0.77, 1.0),
+        ],
+        // Alder bush in the foreground.
+        [
+            (0.0, 0.29), (0.035, 0.29), (0.05, 0.5), (0.13, 0.58), (0.24, 0.6),
+            (0.28, 0.8), (0.26, 1.0), (0.0, 1.0),
+        ],
+    ],
+    depth: (near: 1.6, far: 6.5, far_at_m: 45.0, noise: 0.4, sand_within_m: 6.0),
+    default_zone: 1,
+    features: [
+        // Under and around the jetty (perch hang in the shade).
+        (
+            shape: Ellipse(cx: 0.72, cy: 0.55, rx: 0.2, ry: 0.22),
+            soft: 0.04,
+            zone: Some(2),
+            bottom: Some(Stone),
+        ),
+        // Reeds along the left bank.
+        (
+            shape: Polygon([(0.0, 0.30), (0.4, 0.278), (0.4, 0.29), (0.0, 0.33)]),
+            soft: 0.01,
+            depth: Some(Set(1.2)),
+            zone: Some(3),
+            bottom: Some(Weed),
+        ),
+        // A drop-off into the deep hole.
+        (
+            shape: Ellipse(cx: 0.42, cy: 0.33, rx: 0.3, ry: 0.025),
+            soft: 0.015,
+            depth: Some(Add(2.5)),
+            zone: Some(4),
+        ),
+    ],
+)

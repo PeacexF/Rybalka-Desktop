@@ -20,6 +20,12 @@ pub const SLOTS: usize = 3;
 const LINE_LENGTH_M: f64 = 150.0;
 /// Sale price multiplier for trophies.
 pub const TROPHY_BONUS: f64 = 1.5;
+/// The shop at a fishing base charges more than the one in town.
+pub const LOCAL_MARKUP: f64 = 1.3;
+/// Fishing day: arrive (or wake up) at 05:00, a pass runs out at 23:00.
+const MORNING_H: f64 = 5.0;
+const PASS_ENDS_H: f64 = 23.0;
+const DAY_MIN: f64 = 24.0 * 60.0;
 
 /// Ranks by experience: `(xp needed, name)`.
 pub const RANKS: [(f64, &str); 8] = [
@@ -52,6 +58,17 @@ pub struct Profile {
     pub next_catch_id: u64,
     /// Where the player is fishing; restored on load.
     pub at: Option<Place>,
+    /// Current fishing trip; `None` means the player is in town.
+    pub trip: Option<Trip>,
+}
+
+/// A paid stay at a water.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Trip {
+    pub location: String,
+    /// Game minute when the pass runs out.
+    pub ends_min: f64,
 }
 
 impl Default for Profile {
@@ -65,6 +82,7 @@ impl Default for Profile {
             clock_min: Clock::default().minutes,
             next_catch_id: 1,
             at: None,
+            trip: None,
         }
     }
 }
@@ -131,6 +149,16 @@ pub enum ProfileError {
     InUse,
     #[error("сначала поставьте удилище")]
     NoRod,
+    #[error("нет такого водоёма: `{0}`")]
+    UnknownLocation(String),
+    #[error("сначала завершите текущую поездку")]
+    OnTrip,
+    #[error("путёвка не дольше {0} дн.")]
+    TooLong(u32),
+    #[error("в местной лавке этого нет")]
+    NotInLocalShop,
+    #[error("путёвка закончится раньше утра")]
+    PassEnds,
 }
 
 /// Result of selling the keepnet.
@@ -198,6 +226,14 @@ impl Profile {
         {
             self.at = None;
         }
+        if self
+            .trip
+            .as_ref()
+            .is_some_and(|t| c.location(&t.location).is_none())
+        {
+            self.trip = None;
+            self.at = None;
+        }
     }
 
     pub fn rank(&self) -> u32 {
@@ -238,6 +274,15 @@ impl Profile {
         }
     }
 
+    /// Price of an item where the player is now: in town, or at the base shop
+    /// (consumables only, with a markup). `None` if it isn't sold here.
+    pub fn price_here(&self, item: &Item<'_>) -> Option<f64> {
+        match self.trip {
+            None => Some(item.price()),
+            Some(_) => local_price(item),
+        }
+    }
+
     pub fn buy(&mut self, c: &Content, id: &str, packs: u32) -> Result<(), ProfileError> {
         let item = c
             .item(id)
@@ -245,7 +290,8 @@ impl Profile {
         if self.rank() < item.rank() {
             return Err(ProfileError::Rank(rank_name(item.rank())));
         }
-        let cost = item.price() * f64::from(packs.max(1));
+        let price = self.price_here(&item).ok_or(ProfileError::NotInLocalShop)?;
+        let cost = price * f64::from(packs.max(1));
         if cost > self.money + 1e-9 {
             return Err(ProfileError::Money);
         }
@@ -394,6 +440,76 @@ impl Profile {
         }
     }
 
+    /// Buy a pass and travel to a water. Arriving in the evening or at night
+    /// means starting the next morning.
+    pub fn buy_trip(&mut self, c: &Content, location: &str, days: u32) -> Result<(), ProfileError> {
+        if self.trip.is_some() {
+            return Err(ProfileError::OnTrip);
+        }
+        let loc = c
+            .location(location)
+            .ok_or_else(|| ProfileError::UnknownLocation(location.into()))?;
+        if self.rank() < loc.rank {
+            return Err(ProfileError::Rank(rank_name(loc.rank)));
+        }
+        let days = days.max(1);
+        if days > loc.max_days {
+            return Err(ProfileError::TooLong(loc.max_days));
+        }
+        let cost = loc.price_per_day * f64::from(days);
+        if cost > self.money + 1e-9 {
+            return Err(ProfileError::Money);
+        }
+        self.money -= cost;
+        let day_start = (self.clock_min / DAY_MIN).floor() * DAY_MIN;
+        let hour = (self.clock_min - day_start) / 60.0;
+        if hour >= 18.0 {
+            self.clock_min = day_start + DAY_MIN + MORNING_H * 60.0;
+        } else if hour < MORNING_H {
+            self.clock_min = day_start + MORNING_H * 60.0;
+        }
+        let first_day = (self.clock_min / DAY_MIN).floor() * DAY_MIN;
+        self.trip = Some(Trip {
+            location: location.into(),
+            ends_min: first_day + f64::from(days - 1) * DAY_MIN + PASS_ENDS_H * 60.0,
+        });
+        Ok(())
+    }
+
+    /// The pass has run out (only "end trip" is left).
+    pub fn trip_over(&self) -> bool {
+        self.trip
+            .as_ref()
+            .is_some_and(|t| self.clock_min >= t.ends_min)
+    }
+
+    /// Next morning, if the pass lasts until then.
+    pub fn next_morning(&self) -> Result<f64, ProfileError> {
+        let trip = self.trip.as_ref().ok_or(ProfileError::PassEnds)?;
+        let day_start = (self.clock_min / DAY_MIN).floor() * DAY_MIN;
+        let mut morning = day_start + MORNING_H * 60.0;
+        if morning <= self.clock_min {
+            morning += DAY_MIN;
+        }
+        if morning >= trip.ends_min {
+            return Err(ProfileError::PassEnds);
+        }
+        Ok(morning)
+    }
+
+    /// Sleep at the base until the next morning.
+    pub fn sleep(&mut self) -> Result<(), ProfileError> {
+        self.clock_min = self.next_morning()?;
+        Ok(())
+    }
+
+    /// Back to town: whatever is in the keepnet gets sold.
+    pub fn end_trip(&mut self, c: &Content) -> SaleReport {
+        self.trip = None;
+        self.at = None;
+        self.sell_keepnet(c)
+    }
+
     /// Sell everything in the keepnet: money and experience.
     pub fn sell_keepnet(&mut self, c: &Content) -> SaleReport {
         let rank_before = self.rank();
@@ -431,6 +547,16 @@ impl Profile {
             rank_after: self.rank(),
         }
     }
+}
+
+/// Price at a base shop, which sells only what runs out (baits, lures,
+/// terminal tackle) and charges more than the shop in town.
+pub fn local_price(item: &Item<'_>) -> Option<f64> {
+    matches!(
+        item.category(),
+        ItemCategory::Bait | ItemCategory::Lure | ItemCategory::Tackle
+    )
+    .then(|| (item.price() * LOCAL_MARKUP).round())
 }
 
 pub fn rank_name(rank: u32) -> &'static str {
@@ -628,6 +754,49 @@ mod tests {
         assert_eq!(r.lines[0].count, 2);
         assert!(p.keepnet.is_empty());
         assert!(p.xp > 0.0);
+    }
+
+    #[test]
+    fn trips_cost_money_need_rank_and_end_at_night() {
+        let c = content();
+        let mut p = Profile::starter(&c);
+        p.clock_min = 20.0 * 60.0; // day 1, 20:00
+        let lake = c
+            .locations
+            .iter()
+            .find(|l| l.rank > 0)
+            .expect("a ranked water");
+        assert_eq!(
+            p.buy_trip(&c, &lake.id, 1),
+            Err(ProfileError::Rank(rank_name(lake.rank)))
+        );
+        p.buy_trip(&c, "pond", 2).unwrap();
+        let t = p.trip.clone().unwrap();
+        // Evening arrival: start next morning, pass ends on day 3 at 23:00.
+        assert!((p.clock_min - (DAY_MIN + 5.0 * 60.0)).abs() < 1e-9);
+        assert!((t.ends_min - (2.0 * DAY_MIN + 23.0 * 60.0)).abs() < 1e-9);
+        assert_eq!(p.buy_trip(&c, "pond", 1), Err(ProfileError::OnTrip));
+
+        p.sleep().unwrap();
+        assert!((p.clock_min - (2.0 * DAY_MIN + 5.0 * 60.0)).abs() < 1e-9);
+        assert_eq!(p.sleep(), Err(ProfileError::PassEnds), "last day");
+        assert!(!p.trip_over());
+        p.clock_min = t.ends_min;
+        assert!(p.trip_over());
+        p.end_trip(&c);
+        assert!(p.trip.is_none());
+    }
+
+    #[test]
+    fn base_shop_sells_consumables_with_markup() {
+        let c = content();
+        let mut p = Profile::starter(&c);
+        p.buy_trip(&c, "pond", 1).unwrap();
+        let money = p.money;
+        p.buy(&c, "worm", 1).unwrap();
+        let worm = c.item("worm").unwrap();
+        assert!((money - p.money - (worm.price() * LOCAL_MARKUP).round()).abs() < 1e-9);
+        assert_eq!(p.buy(&c, "reel_1000", 1), Err(ProfileError::NotInLocalShop));
     }
 
     #[test]

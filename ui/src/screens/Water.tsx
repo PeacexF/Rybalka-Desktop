@@ -3,6 +3,7 @@ import type { GameEvent } from "../ipc/bindings/GameEvent";
 import { leaveWater, sendInput, setDebug } from "../ipc/game";
 import { setRain, sfx } from "../audio";
 import { Hud, WEATHER_NAME } from "../hud/Hud";
+import { MapEditor } from "../hud/MapEditor";
 import { PauseMenu } from "../hud/PauseMenu";
 import { Scene } from "../scene/Scene";
 import { WaterMap } from "../scene/WaterMap";
@@ -51,11 +52,9 @@ interface Hover {
   reachable: boolean;
 }
 
-/** Leave the water: sell the keepnet and show the report in the hub. */
+/** Leave the water for the base. */
 export function leave(): void {
-  leaveWater()
-    .then((r) => useGame.getState().setSale(r))
-    .catch(toastError);
+  leaveWater().catch(toastError);
 }
 
 const paused = () => useGame.getState().snapshot?.session?.paused ?? false;
@@ -66,6 +65,7 @@ export function Water() {
   const sceneRef = useRef<Scene | null>(null);
   const mapRef = useRef<WaterMap | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
+  const [editor, setEditor] = useState<{ scene: Scene; map: WaterMap } | null>(null);
 
   // Scene lifecycle.
   useEffect(() => {
@@ -95,6 +95,8 @@ export function Water() {
       const t = EVENT_TOASTS[e.type];
       if (t) useGame.getState().toast(t[0], t[1]);
       if (e.type === "OutOf") useGame.getState().toast(`Закончилось: ${e.item}`, "bad");
+      if (e.type === "TripOver")
+        useGame.getState().toast("Путёвка закончилась — пора домой", "bad");
       if (e.type === "WeatherChanged") {
         useGame.getState().toast(`Погода меняется: ${WEATHER_NAME[e.weather].toLowerCase()}`);
         setRain(e.weather === "Rain" ? 1 : 0);
@@ -150,6 +152,14 @@ export function Water() {
       }
       if (paused()) return;
       switch (e.code) {
+        case "ArrowLeft":
+        case "KeyA":
+          sceneRef.current?.setPanDir(-1);
+          break;
+        case "ArrowRight":
+        case "KeyD":
+          sceneRef.current?.setPanDir(1);
+          break;
         case "Space":
           if (a) sendInput({ type: "Retrieve", rod: a.index });
           e.preventDefault();
@@ -170,6 +180,16 @@ export function Water() {
         case "KeyS":
           useGame.getState().toggleKeepnet();
           break;
+        case "F4":
+          // Water map editor, dev builds only.
+          if (import.meta.env.DEV)
+            setEditor((cur) => {
+              const scene = sceneRef.current;
+              const map = mapRef.current;
+              return cur || !scene || !map ? null : { scene, map };
+            });
+          e.preventDefault();
+          break;
         case "F3": {
           useGame.getState().toggleDebug();
           setDebug(useGame.getState().debug);
@@ -189,6 +209,8 @@ export function Water() {
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === "KeyT") sendInput({ type: "FastForward", on: false });
+      if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD"].includes(e.code))
+        sceneRef.current?.setPanDir(0);
     };
     const blur = () => {
       const a = active();
@@ -263,6 +285,9 @@ export function Water() {
     const map = mapRef.current;
     const a = activeRod();
     if (!scene || !map || !a) return;
+    // Wide panoramas scroll when the mouse rests at a screen edge.
+    const edge = 36;
+    scene.setPanDir(e.clientX < edge ? -1 : e.clientX > window.innerWidth - edge ? 1 : 0);
     const p = scene.toImage(e.clientX, e.clientY);
     const cell = map.sample(p.x, p.y);
     if (!cell) return setHover(null);
@@ -285,7 +310,10 @@ export function Water() {
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerMove={onPointerMove}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => {
+          setHover(null);
+          sceneRef.current?.setPanDir(0);
+        }}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
       />
@@ -301,6 +329,9 @@ export function Water() {
           </div>
         )}
         <PauseMenu onLeave={leave} />
+        {editor && (
+          <MapEditor scene={editor.scene} map={editor.map} onClose={() => setEditor(null)} />
+        )}
       </div>
     </>
   );

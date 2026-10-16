@@ -29,8 +29,6 @@ pub const TICK_HZ: u32 = 20;
 /// Duration of one simulation tick in seconds.
 pub const TICK_DT: f64 = 1.0 / TICK_HZ as f64;
 
-/// Horizontal field of view: at distance `d` the image is `FOV_K * d` metres wide.
-pub(crate) const FOV_K: f64 = 1.2;
 /// Quiet period after a cast before fish may bite, seconds.
 const CALM_AFTER_CAST: f64 = 3.0;
 
@@ -153,6 +151,8 @@ pub enum GameEvent {
         rod: usize,
         item: String,
     },
+    /// The pass ran out; the session ended.
+    TripOver,
     WeatherChanged {
         weather: Weather,
     },
@@ -178,6 +178,8 @@ pub enum SimError {
     NoProfile,
     #[error("no rod is assembled")]
     NoTackle,
+    #[error("no pass for `{0}`")]
+    NoPass(String),
     #[error("`{0}` is not in the backpack")]
     NotOwned(String),
 }
@@ -311,6 +313,9 @@ impl World {
         map: WaterMap,
     ) -> Result<(), SimError> {
         let p = self.profile.as_ref().ok_or(SimError::NoProfile)?;
+        if p.trip.as_ref().is_none_or(|t| t.location != location_id) || p.trip_over() {
+            return Err(SimError::NoPass(location_id.into()));
+        }
         let (slots, rods): (Vec<usize>, Vec<Tackle>) = (0..p.slots.len())
             .filter_map(|i| p.tackle_for(&self.content, i).map(|t| (i, t)))
             .unzip();
@@ -355,9 +360,9 @@ impl World {
         }
     }
 
-    /// Leave the water: fish still in the landing net go to the keepnet,
-    /// and the keepnet is sold.
-    pub fn leave_water(&mut self) -> Result<SaleReport, SimError> {
+    /// Leave the water for the base: fish still in the landing net go to the
+    /// keepnet, which stays in the profile until sold.
+    pub fn leave_water(&mut self) -> Result<(), SimError> {
         if self.profile.is_none() {
             return Err(SimError::NoProfile);
         }
@@ -373,7 +378,41 @@ impl World {
         let p = self.profile.as_mut().expect("checked above");
         p.at = None;
         self.dirty = true;
-        Ok(p.sell_keepnet(&self.content))
+        Ok(())
+    }
+
+    /// Sell the keepnet at the base.
+    pub fn sell_catch(&mut self) -> Result<SaleReport, SimError> {
+        if self.session.is_some() {
+            self.leave_water()?;
+        }
+        let content = self.content.clone();
+        self.update_profile(|p, _| p.sell_keepnet(&content))
+    }
+
+    /// Go back to town; the keepnet is sold.
+    pub fn end_trip(&mut self) -> Result<SaleReport, SimError> {
+        if self.session.is_some() {
+            self.leave_water()?;
+        }
+        let content = self.content.clone();
+        self.update_profile(|p, _| p.end_trip(&content))
+    }
+
+    /// Map editor: swap the water map and/or calibration of the running session.
+    pub fn dev_replace_map(
+        &mut self,
+        map: Option<WaterMap>,
+        view: Option<View>,
+    ) -> Result<(), SimError> {
+        let s = self.session.as_mut().ok_or(SimError::NoSession)?;
+        if let Some(map) = map {
+            s.map = map;
+        }
+        if let Some(view) = view {
+            s.spot.view = view;
+        }
+        Ok(())
     }
 
     /// The profile to save, if it changed since the last call.
@@ -528,6 +567,16 @@ impl World {
         let from = self.events.len();
         self.step_session();
         self.settle(from);
+        let over = match (&self.session, &self.profile) {
+            (Some(s), Some(p)) => p
+                .trip
+                .as_ref()
+                .is_some_and(|t| s.clock.minutes >= t.ends_min),
+            _ => false,
+        };
+        if over && self.leave_water().is_ok() {
+            self.events.push(GameEvent::TripOver);
+        }
     }
 
     fn step_session(&mut self) {
@@ -620,7 +669,7 @@ fn cast(s: &mut Session, rod: usize, target: Point, rng: &mut Rng) {
     // A little scatter, proportional to distance.
     let d = view.distance_at(p.y);
     let spread_m = 0.03 * d;
-    p.x += rng.normal() * spread_m / (FOV_K * d);
+    p.x += rng.normal() * spread_m / (view.fov * d);
     p.y = view.y_at((d + rng.normal() * spread_m).max(view.near_m));
     s.active = rod;
     r.state = RodState::Casting {
@@ -928,7 +977,7 @@ pub(crate) fn fight_point(
 ) -> Point {
     let d = fight.distance_m.max(view.near_m * 0.6);
     Point {
-        x: origin.x + fight.lateral_m / (FOV_K * d),
+        x: origin.x + fight.lateral_m / (view.fov * d),
         y: view.y_at(d),
     }
 }

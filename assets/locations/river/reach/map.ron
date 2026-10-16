@@ -1,0 +1,40 @@
+// Water map spec for river/reach (2.1:1 panorama). Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/river/reach/map.ron assets/locations/river/reach/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (1134, 540),
+    // Must match content/locations/river.ron.
+    view: (horizonY: 0.275, shoreY: 1.0, nearM: 3.0, fov: 1.42),
+    water: [[
+        (0.0, 0.31), (0.25, 0.305), (0.5, 0.295), (0.65, 0.287), (0.8, 0.283),
+        (1.0, 0.28), (1.0, 1.0), (0.0, 1.0),
+    ]],
+    depth: (near: 1.0, far: 4.5, far_at_m: 30.0, noise: 0.4, sand_within_m: 5.0),
+    default_zone: 1,
+    features: [
+        // Willows overhanging the far bank on the right.
+        (
+            shape: Polygon([(0.62, 0.288), (1.0, 0.28), (1.0, 0.3), (0.62, 0.3)]),
+            soft: 0.005,
+            depth: Some(Set(2.0)),
+            zone: Some(2),
+            bottom: Some(Snag),
+        ),
+        // The channel edge: a deep band across the reach.
+        (
+            shape: Polygon([(0.0, 0.33), (1.0, 0.31), (1.0, 0.36), (0.0, 0.38)]),
+            soft: 0.015,
+            depth: Some(Add(2.0)),
+            zone: Some(3),
+        ),
+        // Weedy backwater on the left.
+        (
+            shape: Ellipse(cx: 0.12, cy: 0.315, rx: 0.14, ry: 0.012),
+            soft: 0.006,
+            depth: Some(Set(1.2)),
+            zone: Some(4),
+            bottom: Some(Weed),
+        ),
+    ],
+)

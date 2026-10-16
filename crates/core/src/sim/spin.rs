@@ -106,6 +106,7 @@ mod tests {
         horizon_y: 0.5,
         shore_y: 1.0,
         near_m: 5.0,
+        fov: 1.2,
     };
 
     fn lure(sink: f64) -> LureDef {

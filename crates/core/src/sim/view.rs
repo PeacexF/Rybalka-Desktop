@@ -41,11 +41,34 @@ pub struct ProfileView {
     pub slots: Vec<Slot>,
     /// Unsold fish.
     pub keepnet: usize,
+    pub keepnet_kg: f64,
+    pub day: u32,
+    /// Fractional hour `0..24`.
+    pub hour: f64,
+    pub trip: Option<TripView>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TripView {
+    pub location: String,
+    pub location_name: String,
+    /// Day and hour when the pass runs out.
+    pub ends_day: u32,
+    pub ends_hour: f64,
+    pub over: bool,
+    /// Sleeping until morning is possible.
+    pub can_sleep: bool,
 }
 
 impl ProfileView {
-    pub fn new(p: &Profile) -> Self {
+    pub fn new(p: &Profile, content: &crate::content::Content) -> Self {
         let rank = p.rank();
+        let clock = crate::clock::Clock {
+            minutes: p.clock_min,
+            ..Default::default()
+        };
         Self {
             money: p.money,
             xp: p.xp,
@@ -56,6 +79,26 @@ impl ProfileView {
             items: p.items.clone(),
             slots: p.slots.clone(),
             keepnet: p.keepnet.len(),
+            keepnet_kg: p.keepnet.iter().map(|c| c.weight_kg).sum(),
+            day: clock.day(),
+            hour: clock.hour(),
+            trip: p.trip.as_ref().map(|t| {
+                let ends = crate::clock::Clock {
+                    minutes: t.ends_min,
+                    ..Default::default()
+                };
+                TripView {
+                    location: t.location.clone(),
+                    location_name: content
+                        .location(&t.location)
+                        .map(|l| l.name.clone())
+                        .unwrap_or_default(),
+                    ends_day: ends.day(),
+                    ends_hour: ends.hour(),
+                    over: p.trip_over(),
+                    can_sleep: p.next_morning().is_ok(),
+                }
+            }),
         }
     }
 }
@@ -171,7 +214,7 @@ impl World {
         Snapshot {
             tick: self.tick,
             session: self.session.as_ref().map(|s| self.session_view(s)),
-            profile: self.profile().map(ProfileView::new),
+            profile: self.profile().map(|p| ProfileView::new(p, &self.content)),
             events,
         }
     }
@@ -359,6 +402,8 @@ pub struct ShopItem {
     pub rod_kind: Option<RodKind>,
     /// Terminal tackle only: which kind.
     pub tackle_kind: Option<crate::content::TackleKind>,
+    /// Price at a fishing base, if it sells this at all.
+    pub local_price: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -367,6 +412,14 @@ pub struct ShopItem {
 pub struct LocationInfo {
     pub id: String,
     pub name: String,
+    pub kind: crate::content::WaterKind,
+    pub description: String,
+    pub rank: u32,
+    pub rank_name: String,
+    pub price_per_day: f64,
+    pub max_days: u32,
+    /// Species that live here, by display name.
+    pub fish: Vec<String>,
     pub spots: Vec<SpotInfo>,
 }
 
@@ -400,17 +453,46 @@ impl World {
                     crate::content::Item::Tackle(t) => Some(t.kind),
                     _ => None,
                 },
+                local_price: profile::local_price(&i),
             })
             .collect()
     }
 
+    /// Waters in order of progression (rank, then price).
     pub fn locations(&self) -> Vec<LocationInfo> {
-        self.content
-            .locations
-            .iter()
+        let mut locs: Vec<_> = self.content.locations.iter().collect();
+        locs.sort_by(|a, b| {
+            a.rank
+                .cmp(&b.rank)
+                .then(a.price_per_day.total_cmp(&b.price_per_day))
+        });
+        locs.into_iter()
             .map(|l| LocationInfo {
                 id: l.id.clone(),
                 name: l.name.clone(),
+                kind: l.kind,
+                description: l.description.clone(),
+                rank: l.rank,
+                rank_name: profile::rank_name(l.rank).into(),
+                price_per_day: l.price_per_day,
+                max_days: l.max_days,
+                fish: {
+                    let mut ids: Vec<&String> = l
+                        .spots
+                        .iter()
+                        .flat_map(|s| &s.zones)
+                        .flat_map(|z| z.fish.keys())
+                        .collect();
+                    ids.sort();
+                    ids.dedup();
+                    // Catalogue order (fish.ron), not alphabetical.
+                    self.content
+                        .fish
+                        .iter()
+                        .filter(|f| ids.contains(&&f.id))
+                        .map(|f| f.name.clone())
+                        .collect()
+                },
                 spots: l
                     .spots
                     .iter()

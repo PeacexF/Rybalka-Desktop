@@ -81,6 +81,9 @@ export class Scene {
   /** 0..1 fade of the rain and fog overlays. */
   private rainLevel = 0;
   private fogLevel = 0;
+  /** Horizontal pan over a panorama wider than the screen, 0 (left) … 1 (right). */
+  private pan = 0.5;
+  private panDir = 0;
 
   async init(host: HTMLElement): Promise<void> {
     // Worker-side fetches can't reach Tauri's asset protocol in release builds.
@@ -114,6 +117,7 @@ export class Scene {
     const url = new URL(`/${session.background}`, window.location.href).href;
     if (url !== this.bgUrl) {
       this.bgUrl = url;
+      this.pan = 0.5;
       Assets.load<Texture>(url)
         .then((tex) => {
           this.bg.texture = tex;
@@ -157,7 +161,17 @@ export class Scene {
     const k = Math.max(width / iw, height / ih);
     const w = iw * k;
     const h = ih * k;
-    return { ox: (width - w) / 2, oy: (height - h) / 2, w, h };
+    return { ox: (width - w) * this.pan, oy: (height - h) / 2, w, h };
+  }
+
+  /** Screen rectangle the background image occupies (it may overflow the screen). */
+  fitRect(): { ox: number; oy: number; w: number; h: number } {
+    return this.fit();
+  }
+
+  /** Start (−1 / 1) or stop (0) scrolling a wide panorama. */
+  setPanDir(dir: number): void {
+    this.panDir = dir;
   }
 
   toScreen(p: Point): Vec {
@@ -183,6 +197,10 @@ export class Scene {
 
   private frame(dt: number): void {
     this.time += dt;
+    const over = this.fit().w - this.app.screen.width;
+    if (this.panDir !== 0 && over > 1) {
+      this.pan = Math.min(1, Math.max(0, this.pan + (this.panDir * 900 * dt) / over));
+    }
     const f = this.fit();
     this.bg.position.set(f.ox, f.oy);
     this.bg.width = f.w;

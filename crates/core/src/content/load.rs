@@ -144,6 +144,9 @@ pub(super) fn validate(c: &Content) -> Result<(), ContentError> {
         if l.spots.is_empty() {
             return invalid(format!("location `{}`: no spots", l.id));
         }
+        if l.price_per_day < 0.0 || l.max_days == 0 {
+            return invalid(format!("location `{}`: bad pass price or length", l.id));
+        }
         for s in &l.spots {
             let v = &s.view;
             if !(0.0 <= v.horizon_y && v.horizon_y < v.shore_y && v.shore_y <= 1.0) {

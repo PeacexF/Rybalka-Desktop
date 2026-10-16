@@ -20,9 +20,7 @@ export function PauseMenu({ onLeave }: { onLeave: () => void }) {
           <button className="primary" onClick={() => sendInput({ type: "Pause", on: false })}>
             Продолжить <kbd>Esc</kbd>
           </button>
-          <button onClick={onLeave}>
-            {n > 0 ? "Уйти с водоёма и продать улов" : "Уйти с водоёма"}
-          </button>
+          <button onClick={onLeave}>Уйти на базу</button>
         </div>
       </div>
     </div>

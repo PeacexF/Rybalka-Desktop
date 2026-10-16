@@ -15,15 +15,25 @@ export const CATEGORY_NAME: Record<ItemCategory, string> = {
 };
 const CATEGORIES = Object.keys(CATEGORY_NAME) as ItemCategory[];
 
-export function Shop({ profile }: { profile: ProfileView }) {
+/** The town shop, or a base shop (`local`): consumables only, pricier. */
+export function Shop({ profile, local }: { profile: ProfileView; local: boolean }) {
   const catalog = useGame((s) => s.catalog);
-  const [cat, setCat] = useState<ItemCategory>("Rod");
-  const items = catalog.filter((i) => i.category === cat);
+  const categories = CATEGORIES.filter(
+    (c) => !local || catalog.some((i) => i.category === c && i.localPrice !== null),
+  );
+  const [picked, setCat] = useState<ItemCategory>(categories[0]!);
+  const cat = categories.includes(picked) ? picked : categories[0]!;
+  const items = catalog
+    .filter((i) => i.category === cat && (!local || i.localPrice !== null))
+    .map((i) => ({ ...i, price: local ? i.localPrice! : i.price }));
 
   return (
     <div className="shop">
+      {local && (
+        <div className="hub-note">Местная лавка: только расходники и подороже, чем в городе.</div>
+      )}
       <div className="chips">
-        {CATEGORIES.map((c) => (
+        {categories.map((c) => (
           <button key={c} className={c === cat ? "on" : ""} onClick={() => setCat(c)}>
             {CATEGORY_NAME[c]}
           </button>

@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::FOV_K;
 use super::rod::Point;
 use crate::content::View;
 
@@ -34,7 +33,7 @@ impl Patch {
 /// Ground-plane position in metres: (lateral, distance).
 fn ground(view: &View, p: Point) -> (f64, f64) {
     let d = view.distance_at(p.y).min(500.0);
-    ((p.x - 0.5) * FOV_K * d, d)
+    ((p.x - 0.5) * view.fov * d, d)
 }
 
 pub fn distance_m(view: &View, a: Point, b: Point) -> f64 {
@@ -86,6 +85,7 @@ mod tests {
         horizon_y: 0.5,
         shore_y: 1.0,
         near_m: 5.0,
+        fov: 1.2,
     };
 
     #[test]

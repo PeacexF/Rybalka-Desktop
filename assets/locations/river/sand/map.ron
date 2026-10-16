@@ -1,0 +1,42 @@
+// Water map spec for river/sand. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/river/sand/map.ron assets/locations/river/sand/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/river.ron.
+    view: (horizonY: 0.47, shoreY: 1.0, nearM: 2.0),
+    water: [[
+        (0.40, 0.484), (0.5, 0.488), (0.6, 0.493), (0.7, 0.498), (0.8, 0.502),
+        (0.9, 0.505), (1.0, 0.508), (1.0, 1.0), (0.45, 1.0), (0.46, 0.9),
+        (0.45, 0.85), (0.47, 0.80), (0.52, 0.73), (0.54, 0.69), (0.55, 0.65),
+        (0.62, 0.615), (0.6, 0.60), (0.52, 0.56), (0.5, 0.53), (0.47, 0.50),
+    ]],
+    depth: (near: 0.5, far: 3.8, far_at_m: 18.0, noise: 0.35, sand_within_m: 8.0),
+    default_zone: 1,
+    features: [
+        // Sandy riffle off the spit.
+        (
+            shape: Polygon([(0.45, 1.0), (0.47, 0.8), (0.55, 0.65), (0.62, 0.615), (0.75, 0.64), (0.7, 0.8), (0.65, 1.0)]),
+            soft: 0.04,
+            depth: Some(Set(0.6)),
+            zone: Some(2),
+            bottom: Some(Sand),
+        ),
+        // Undercut far bank with roots.
+        (
+            shape: Polygon([(0.5, 0.487), (1.0, 0.507), (1.0, 0.53), (0.55, 0.5)]),
+            soft: 0.006,
+            depth: Some(Add(0.8)),
+            zone: Some(3),
+            bottom: Some(Snag),
+        ),
+        // The hole above the bend.
+        (
+            shape: Ellipse(cx: 0.47, cy: 0.49, rx: 0.08, ry: 0.008),
+            soft: 0.006,
+            depth: Some(Add(1.5)),
+            zone: Some(4),
+        ),
+    ],
+)

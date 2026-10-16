@@ -1,0 +1,37 @@
+// Water map spec for reservoir/open (2.2:1 panorama). Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/reservoir/open/map.ron assets/locations/reservoir/open/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (1188, 540),
+    // Must match content/locations/reservoir.ron.
+    view: (horizonY: 0.33, shoreY: 1.0, nearM: 4.0, fov: 1.48),
+    water: [[(0.0, 0.335), (0.6, 0.335), (1.0, 0.337), (1.0, 1.0), (0.0, 1.0)]],
+    depth: (near: 2.0, far: 9.0, far_at_m: 60.0, noise: 0.6, sand_within_m: 0.0),
+    default_zone: 1,
+    features: [
+        // Edge of the flooded river channel.
+        (
+            shape: Polygon([(0.0, 0.40), (1.0, 0.37), (1.0, 0.41), (0.0, 0.45)]),
+            soft: 0.02,
+            depth: Some(Add(3.0)),
+            zone: Some(2),
+        ),
+        // Stony ridge on the right.
+        (
+            shape: Ellipse(cx: 0.8, cy: 0.62, rx: 0.16, ry: 0.12),
+            soft: 0.04,
+            depth: Some(Add(-1.5)),
+            zone: Some(3),
+            bottom: Some(Stone),
+        ),
+        // Flooded forest: stumps on the old bank.
+        (
+            shape: Ellipse(cx: 0.18, cy: 0.5, rx: 0.17, ry: 0.06),
+            soft: 0.03,
+            depth: Some(Add(-1.0)),
+            zone: Some(4),
+            bottom: Some(Snag),
+        ),
+    ],
+)

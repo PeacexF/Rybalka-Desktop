@@ -1,0 +1,53 @@
+(
+    id: "reservoir",
+    name: "Водохранилище",
+    kind: Reservoir,
+    description: "Большая вода: затопленное русло, каменные гряды и коряжник. Трофейный лещ, судак, карп и щука.",
+    rank: 3,
+    price_per_day: 200,
+    max_days: 7,
+    spots: [
+        (
+            id: "open",
+            name: "Открытая вода",
+            background: "locations/reservoir/open/bg.jpg",
+            map: "locations/reservoir/open/map.png",
+            // Must match assets/locations/reservoir/open/map.ron
+            view: (horizonY: 0.33, shoreY: 1.0, nearM: 4.0, fov: 1.48),
+            zones: [
+                (id: 1, name: "Открытая вода", fish: {"bream": 0.8, "white_bream": 0.8, "roach": 0.8, "bleak": 0.8, "asp": 0.6, "perch": 0.5}),
+                (id: 2, name: "Бровка русла", fish: {"bream": 1.4, "zander": 1.2, "white_bream": 0.8, "carp": 0.4}),
+                (id: 3, name: "Каменистая гряда", fish: {"perch": 1.4, "zander": 0.8, "asp": 0.6, "ruffe": 0.6}),
+                (id: 4, name: "Затопленный лес", fish: {"pike": 1.4, "perch": 1.0, "carp": 0.6, "roach": 0.5}),
+            ],
+        ),
+        (
+            id: "cape",
+            name: "У мыса",
+            background: "locations/reservoir/cape/bg.jpg",
+            map: "locations/reservoir/cape/map.png",
+            // Must match assets/locations/reservoir/cape/map.ron
+            view: (horizonY: 0.55, shoreY: 1.0, nearM: 3.0),
+            zones: [
+                (id: 1, name: "Открытая вода", fish: {"bream": 0.8, "roach": 0.8, "white_bream": 0.7, "perch": 0.5, "asp": 0.5}),
+                (id: 2, name: "Каменная коса", fish: {"perch": 1.4, "zander": 1.0, "asp": 0.8}),
+                (id: 3, name: "Яма под горой", fish: {"bream": 1.4, "zander": 1.0, "carp": 0.6, "white_bream": 0.6}),
+                (id: 4, name: "Отмель", fish: {"roach": 1.0, "bleak": 1.0, "rudd": 0.6, "carp": 0.5, "pike": 0.5}),
+            ],
+        ),
+        (
+            id: "beach",
+            name: "Пляж с бунами",
+            background: "locations/reservoir/beach/bg.jpg",
+            map: "locations/reservoir/beach/map.png",
+            // Must match assets/locations/reservoir/beach/map.ron
+            view: (horizonY: 0.255, shoreY: 1.0, nearM: 3.0, fov: 1.35),
+            zones: [
+                (id: 1, name: "Открытая вода", fish: {"roach": 0.9, "bleak": 0.9, "white_bream": 0.7, "bream": 0.6, "asp": 0.5}),
+                (id: 2, name: "У камней", fish: {"perch": 1.4, "zander": 1.2, "ruffe": 0.8, "pike": 0.5}),
+                (id: 3, name: "Пляж", fish: {"bleak": 1.2, "roach": 1.0, "rudd": 0.6, "carp": 0.4}),
+                (id: 4, name: "Старое русло", fish: {"bream": 1.4, "zander": 1.0, "carp": 0.8, "white_bream": 0.8}),
+            ],
+        ),
+    ],
+)

@@ -1,0 +1,48 @@
+// Water map spec for pond/reeds. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/pond/reeds/map.ron assets/locations/pond/reeds/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/pond.ron.
+    view: (horizonY: 0.15, shoreY: 1.0, nearM: 3.0),
+    water: [[
+        (0.0, 0.385), (0.1, 0.375), (0.2, 0.36), (0.3, 0.33), (0.38, 0.285),
+        (0.45, 0.255), (0.55, 0.225), (0.65, 0.22), (0.75, 0.222), (0.85, 0.24),
+        (0.95, 0.26), (1.0, 0.27), (1.0, 1.0), (0.0, 1.0),
+    ]],
+    depth: (near: 0.5, far: 2.2, far_at_m: 22.0, noise: 0.2, sand_within_m: 0.0),
+    default_zone: 1,
+    features: [
+        // Reeds right in front of the angler.
+        (
+            shape: Polygon([(0.33, 1.0), (0.38, 0.62), (0.6, 0.5), (0.8, 0.5), (0.97, 0.62), (1.0, 1.0)]),
+            soft: 0.04,
+            depth: Some(Set(0.6)),
+            zone: Some(2),
+            bottom: Some(Weed),
+        ),
+        // Water lilies on the left.
+        (
+            shape: Ellipse(cx: 0.1, cy: 0.74, rx: 0.16, ry: 0.13),
+            soft: 0.04,
+            depth: Some(Set(0.9)),
+            zone: Some(3),
+            bottom: Some(Weed),
+        ),
+        // Bushes and snags under the far bank.
+        (
+            shape: Polygon([(0.0, 0.37), (0.3, 0.32), (0.55, 0.22), (1.0, 0.26), (1.0, 0.31), (0.55, 0.255), (0.3, 0.36), (0.0, 0.42)]),
+            soft: 0.02,
+            depth: Some(Set(1.1)),
+            zone: Some(4),
+            bottom: Some(Snag),
+        ),
+        // Middle of the pond.
+        (
+            shape: Ellipse(cx: 0.62, cy: 0.32, rx: 0.2, ry: 0.06),
+            soft: 0.03,
+            depth: Some(Add(0.5)),
+        ),
+    ],
+)

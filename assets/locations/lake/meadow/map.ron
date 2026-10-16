@@ -1,0 +1,42 @@
+// Water map spec for lake/meadow. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/lake/meadow/map.ron assets/locations/lake/meadow/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/lake.ron.
+    view: (horizonY: 0.445, shoreY: 1.0, nearM: 3.0),
+    water: [[
+        (0.0, 0.455), (0.4, 0.453), (0.86, 0.452), (0.86, 0.46), (0.72, 0.475),
+        (0.56, 0.50), (0.55, 0.51), (0.6, 0.535), (0.645, 0.555), (0.62, 0.58),
+        (0.55, 0.60), (0.49, 0.64), (0.45, 0.69), (0.43, 0.73), (0.40, 0.78),
+        (0.37, 0.82), (0.33, 0.87), (0.30, 0.93), (0.28, 1.0), (0.0, 1.0),
+    ]],
+    depth: (near: 1.2, far: 5.5, far_at_m: 50.0, noise: 0.45, sand_within_m: 0.0),
+    default_zone: 1,
+    features: [
+        // Weedy edge along the meadow bank.
+        (
+            shape: Polygon([(0.86, 0.455), (0.55, 0.505), (0.64, 0.555), (0.5, 0.63), (0.42, 0.73), (0.27, 1.0), (0.2, 1.0), (0.36, 0.72), (0.45, 0.6), (0.5, 0.5), (0.86, 0.45)]),
+            soft: 0.03,
+            depth: Some(Set(0.9)),
+            zone: Some(2),
+            bottom: Some(Weed),
+        ),
+        // Bar running out from the point: the deepest water lies beyond it.
+        (
+            shape: Ellipse(cx: 0.3, cy: 0.49, rx: 0.3, ry: 0.025),
+            soft: 0.015,
+            depth: Some(Add(2.5)),
+            zone: Some(3),
+        ),
+        // Under the far forest bank.
+        (
+            shape: Polygon([(0.0, 0.453), (0.86, 0.45), (0.86, 0.458), (0.0, 0.462)]),
+            soft: 0.004,
+            depth: Some(Set(1.8)),
+            zone: Some(4),
+            bottom: Some(Snag),
+        ),
+    ],
+)

@@ -1,0 +1,40 @@
+// Water map spec for reservoir/cape. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/reservoir/cape/map.ron assets/locations/reservoir/cape/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/reservoir.ron.
+    view: (horizonY: 0.55, shoreY: 1.0, nearM: 3.0),
+    water: [[
+        (0.0, 0.553), (0.5, 0.558), (0.8, 0.565), (0.85, 0.572), (0.9, 0.585),
+        (0.95, 0.6), (1.0, 0.632), (1.0, 1.0), (0.0, 1.0),
+    ]],
+    depth: (near: 1.5, far: 8.0, far_at_m: 50.0, noise: 0.5, sand_within_m: 6.0),
+    default_zone: 1,
+    features: [
+        // Stony bar off the cape.
+        (
+            shape: Ellipse(cx: 0.88, cy: 0.62, rx: 0.12, ry: 0.035),
+            soft: 0.02,
+            depth: Some(Set(2.2)),
+            zone: Some(2),
+            bottom: Some(Stone),
+        ),
+        // Deep hole under the forested hill.
+        (
+            shape: Ellipse(cx: 0.5, cy: 0.575, rx: 0.25, ry: 0.012),
+            soft: 0.01,
+            depth: Some(Add(3.0)),
+            zone: Some(3),
+        ),
+        // Sunlit sandy shallows on the left.
+        (
+            shape: Ellipse(cx: 0.1, cy: 0.85, rx: 0.2, ry: 0.2),
+            soft: 0.05,
+            depth: Some(Set(1.0)),
+            zone: Some(4),
+            bottom: Some(Sand),
+        ),
+    ],
+)

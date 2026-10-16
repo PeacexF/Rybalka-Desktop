@@ -68,7 +68,25 @@ export function goFishing(location: string, spot: string): Promise<void> {
   return invoke("go_fishing", { location, spot });
 }
 
-/** Leave the water; the keepnet is sold. */
-export function leaveWater(): Promise<SaleReport> {
+/** Leave the water for the base; the catch stays in the keepnet. */
+export function leaveWater(): Promise<void> {
   return invoke("leave_water");
+}
+
+export function buyTrip(location: string, days: number): Promise<void> {
+  return invoke("buy_trip", { location, days });
+}
+
+/** Sleep at the base until the next morning. */
+export function sleep(): Promise<void> {
+  return invoke("sleep");
+}
+
+export function sellCatch(): Promise<SaleReport> {
+  return invoke("sell_catch");
+}
+
+/** Back to town; whatever is in the keepnet is sold. */
+export function endTrip(): Promise<SaleReport> {
+  return invoke("end_trip");
 }

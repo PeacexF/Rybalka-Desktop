@@ -1,6 +1,11 @@
 (
     id: "pond",
     name: "Пруд у деревни",
+    kind: Pond,
+    description: "Тихий деревенский пруд: плотва, карась и окунь у берега, в старом русле — лещ и судак. Путёвка бесплатная.",
+    rank: 0,
+    price_per_day: 0,
+    max_days: 7,
     spots: [
         (
             id: "willow",
@@ -14,6 +19,20 @@
                 (id: 2, name: "Под дальним берегом", fish: {"crucian": 1.6, "tench": 0.8, "carp": 0.5, "roach": 0.6, "perch": 0.3, "pike": 0.9}),
                 (id: 3, name: "Под берёзой", fish: {"perch": 1.4, "roach": 0.7, "tench": 0.6, "carp": 0.4, "crucian": 0.3, "pike": 0.8}),
                 (id: 4, name: "Старое русло", fish: {"bream": 1.2, "roach": 1.0, "ruffe": 0.8, "perch": 0.6, "carp": 0.3, "zander": 0.7}),
+            ],
+        ),
+        (
+            id: "reeds",
+            name: "В тростнике",
+            background: "locations/pond/reeds/bg.jpg",
+            map: "locations/pond/reeds/map.png",
+            // Must match assets/locations/pond/reeds/map.ron
+            view: (horizonY: 0.15, shoreY: 1.0, nearM: 3.0),
+            zones: [
+                (id: 1, name: "Середина", fish: {"roach": 1.0, "crucian": 0.8, "rudd": 0.8, "perch": 0.5, "carp": 0.3}),
+                (id: 2, name: "Тростник", fish: {"crucian": 1.4, "tench": 1.0, "rudd": 1.0, "carp": 0.4}),
+                (id: 3, name: "Кувшинки", fish: {"tench": 1.2, "crucian": 1.0, "rudd": 0.8, "pike": 0.6}),
+                (id: 4, name: "Под кустами", fish: {"perch": 1.2, "pike": 0.8, "roach": 0.5, "tench": 0.4}),
             ],
         ),
     ],
