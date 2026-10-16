@@ -4,6 +4,7 @@ import type { ProfileView } from "../../ipc/bindings/ProfileView";
 import { buy } from "../../ipc/game";
 import { formatMoney } from "../../format";
 import { toastError, useGame } from "../../store/game";
+import { sfx } from "../../audio";
 
 export const CATEGORY_NAME: Record<ItemCategory, string> = {
   Rod: "Удилища",
@@ -63,7 +64,10 @@ export function Shop({ profile, local }: { profile: ProfileView; local: boolean 
                   title={poor ? "Не хватает денег" : undefined}
                   onClick={() =>
                     buy(it.id)
-                      .then(() => useGame.getState().toast(`Куплено: ${it.name}`, "good"))
+                      .then(() => {
+                        sfx.coins();
+                        useGame.getState().toast(`Куплено: ${it.name}`, "good");
+                      })
                       .catch(toastError)
                   }
                 >

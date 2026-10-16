@@ -235,7 +235,41 @@ export function setAmbience(a: Ambience | null): void {
   timer ??= setInterval(ambienceTick, TICK_S * 1000);
 }
 
+/** Noise swept through a band-pass filter: rod swish, line through air. */
+function swish(from: number, to: number, dur: number, gain: number) {
+  const a = ac();
+  if (!a) return;
+  const { ctx: c, out } = a;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, dur);
+  const f = c.createBiquadFilter();
+  f.type = "bandpass";
+  f.Q.value = 2;
+  const t = c.currentTime;
+  f.frequency.setValueAtTime(from, t);
+  f.frequency.exponentialRampToValueAtTime(to, t + dur);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.3);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(out);
+  src.start(t);
+  src.stop(t + dur);
+}
+
 export const sfx = {
+  /** Rod swung for a cast or a strike. */
+  whoosh(size = 1) {
+    swish(600, 2600, 0.28 * size, 0.35 * size);
+  },
+  /** Money changes hands. */
+  coins() {
+    [0, 0.07, 0.15].forEach((d, i) => tone(2600 + i * 400, 0.25, 0.08, "triangle", d));
+  },
+  /** New record or rank: a short rising arpeggio. */
+  fanfare() {
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.5, 0.12, "triangle", i * 0.11));
+  },
   /** Rig hits the water. */
   plop(size = 1) {
     burst(700 / size, 1.2, 0.25 * size, 0.5, "bandpass");

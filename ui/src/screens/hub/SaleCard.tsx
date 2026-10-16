@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { sfx } from "../../audio";
 import type { SaleReport } from "../../ipc/bindings/SaleReport";
 import { formatMoney, formatWeight } from "../../format";
 import { useGame } from "../../store/game";
@@ -6,6 +8,12 @@ export function SaleCard({ report }: { report: SaleReport }) {
   const close = () => useGame.getState().setSale(null);
   const rankName = useGame((s) => s.snapshot?.profile?.rankName);
   const rankUp = report.rankAfter > report.rankBefore;
+  const sold = report.lines.length > 0;
+
+  useEffect(() => {
+    if (sold) sfx.coins();
+    if (rankUp) sfx.fanfare();
+  }, [sold, rankUp]);
 
   return (
     <div className="modal-backdrop dimmed" onClick={close}>

@@ -25,3 +25,25 @@ Prepared with `cargo run -p rybalka-devtools --release --bin photo -- prepare <i
 
 `locations/**/map.png` are generated from the adjacent `map.ron` specs by
 `crates/devtools/src/bin/gen_map.rs` and are part of the project (MIT).
+
+Licences last checked against Wikimedia Commons on 2026-10-17: all ten photos are CC0 1.0
+with the authors listed above.
+
+## Sound
+
+There are no recorded sound files. Every sound in the game, including splashes, the bite bell,
+reel clicks, rain, wind, birds and crickets, is synthesized at runtime with the Web Audio API
+in `ui/src/audio.ts`. It is part of the project (MIT).
+
+## Icon and interface
+
+- The app icon (`src-tauri/icons/*`) is drawn by `tools/gen_icon.py` and is part of the project (MIT).
+- The interface uses the system UI font and has no bundled fonts or icon sets.
+
+## Code dependencies
+
+Rust crates and npm packages keep their own licences and are listed in `Cargo.lock` and
+`package-lock.json`. As of 2026-10-17 they are MIT, Apache-2.0, BSD, ISC, Zlib and Unicode-3.0,
+plus a few MPL-2.0 crates pulled in by Tauri (file-level copyleft, used unmodified). The
+build-only npm packages `caniuse-lite` (CC-BY-4.0) and `lightningcss` (MPL-2.0) are not
+shipped in the bundle. There is no GPL code.

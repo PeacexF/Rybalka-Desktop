@@ -25,6 +25,12 @@ function playEventSound(e: GameEvent): void {
   const s = useGame.getState().snapshot?.session;
   const rod = s?.rods[e.rod];
   switch (e.type) {
+    case "Missed":
+      sfx.whoosh(0.6);
+      break;
+    case "Escaped":
+      sfx.plop(0.8);
+      break;
     case "CastLanded":
       sfx.plop(rod?.kind === "Feeder" ? 1.4 : 1);
       break;
@@ -96,6 +102,7 @@ export function Water() {
       const t = EVENT_TOASTS[e.type];
       if (t) useGame.getState().toast(t[0], t[1]);
       if (e.type === "OutOf") useGame.getState().toast(`Закончилось: ${e.item}`, "bad");
+      if (e.type === "NewRecord") sfx.fanfare();
       if (e.type === "NewRecord")
         useGame
           .getState()
@@ -257,6 +264,7 @@ export function Water() {
           return;
         }
         sendInput({ type: "Cast", rod: a.index, x: p.x, y: p.y });
+        sfx.whoosh();
         break;
       }
       case "Waiting":
