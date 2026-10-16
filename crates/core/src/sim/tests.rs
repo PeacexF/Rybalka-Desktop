@@ -361,3 +361,179 @@ fn snagged_lure_is_freed_or_lost_on_pull() {
             .any(|e| matches!(e, GameEvent::Unsnagged { .. } | GameEvent::LineBroke { .. }))
     );
 }
+
+/// World with the shipped content and the starter profile.
+fn economy_world() -> World {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content");
+    let c = Arc::new(crate::content::load_dir(&dir).unwrap());
+    let mut w = World::new(c.clone(), 77);
+    w.set_profile(Some(crate::profile::Profile::starter(&c)));
+    w
+}
+
+fn cast_and_land(w: &mut World, rod: usize) {
+    w.input(Input::Cast {
+        rod,
+        x: 0.5,
+        y: 0.7,
+    })
+    .unwrap();
+    run_until(w, 400, |e| matches!(e, GameEvent::CastLanded { .. }));
+}
+
+#[test]
+fn go_fishing_uses_assembled_slots() {
+    let mut w = economy_world();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    let s = w.session().unwrap();
+    assert_eq!(s.rods.len(), 1, "starter kit has one rod");
+    assert_eq!(s.slots, vec![0]);
+    assert_eq!(s.rods[0].tackle.max_cast_m, 18.0);
+    assert!(w.profile().unwrap().at.is_some());
+}
+
+#[test]
+fn no_tackle_no_fishing() {
+    let mut w = economy_world();
+    w.update_profile(|p, _| p.slots[0].rod = None).unwrap();
+    assert_eq!(
+        w.go_fishing("pond", "willow", map()),
+        Err(SimError::NoTackle)
+    );
+}
+
+#[test]
+fn cast_without_hooks_is_refused() {
+    let mut w = economy_world();
+    w.update_profile(|p, _| p.items.remove("hooks")).unwrap();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    w.input(Input::Cast {
+        rod: 0,
+        x: 0.5,
+        y: 0.7,
+    })
+    .unwrap();
+    let ev = w.drain_events();
+    assert!(
+        matches!(&ev[..], [GameEvent::OutOf { rod: 0, item }] if item == "Крючки"),
+        "{ev:?}"
+    );
+    assert!(matches!(w.session().unwrap().rods[0].state, RodState::Idle));
+}
+
+#[test]
+fn broken_line_loses_the_rig() {
+    let mut w = economy_world();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    let p = w.profile().unwrap();
+    let (hooks, floats) = (p.count("hooks"), p.count("floats"));
+    let view = w.session().unwrap().spot.view;
+    let snag = || RodState::Snagged {
+        run: spin::LureRun::new(Point { x: 0.5, y: 0.7 }, &view),
+    };
+    // Pull until the line snaps (a lucky pull just frees the rig).
+    for _ in 0..50 {
+        w.rods_mut()[0].state = snag();
+        w.input(Input::Retrieve { rod: 0 }).unwrap();
+        if w.drain_events()
+            .iter()
+            .any(|e| matches!(e, GameEvent::LineBroke { .. }))
+        {
+            break;
+        }
+    }
+    let p = w.profile().unwrap();
+    assert_eq!(p.count("hooks"), hooks - 1);
+    assert_eq!(p.count("floats"), floats - 1);
+}
+
+#[test]
+fn feeder_without_groundbait_lays_no_patch() {
+    let mut w = economy_world();
+    w.update_profile(|p, c| {
+        p.items.insert("rod_feeder_light".into(), 1);
+        p.items.insert("feeders".into(), 2);
+        p.xp = 1000.0;
+        p.equip(c, 0, crate::profile::Part::Rod, Some("rod_feeder_light"))
+            .unwrap();
+    })
+    .unwrap();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    cast_and_land(&mut w, 0);
+    assert!(w.session().unwrap().groundbait.is_empty());
+
+    w.input(Input::Retrieve { rod: 0 }).unwrap();
+    run_until(&mut w, 100, |_| false);
+    w.update_profile(|p, _| p.items.insert("groundbait".into(), 1))
+        .unwrap();
+    cast_and_land(&mut w, 0);
+    assert_eq!(w.session().unwrap().groundbait.len(), 1);
+    assert_eq!(w.profile().unwrap().count("groundbait"), 0);
+}
+
+#[test]
+fn leaving_water_sells_and_keeps_settings() {
+    let mut w = economy_world();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    w.input(Input::SetFloatDepth { rod: 0, m: 2.2 }).unwrap();
+    let catch = Catch {
+        id: 1,
+        fish_id: "roach".into(),
+        name: "Плотва".into(),
+        weight_kg: 0.4,
+        trophy: false,
+        bait: "worm".into(),
+        at_min: 0.0,
+    };
+    w.rods_mut()[0].state = RodState::Landed { catch };
+    for _ in 0..200 {
+        w.step();
+    }
+    let money = w.profile().unwrap().money;
+    let report = w.leave_water().unwrap();
+    assert_eq!(report.lines.len(), 1, "fish in the landing net is kept");
+    assert!(report.money > 0.0);
+    let p = w.profile().unwrap();
+    assert!((p.money - money - report.money).abs() < 1e-9);
+    assert!((p.slots[0].float_depth_m - 2.2).abs() < 1e-9);
+    assert!(p.clock_min > crate::clock::Clock::default().minutes);
+    assert!(p.at.is_none() && p.keepnet.is_empty());
+    assert!(w.session().is_none());
+}
+
+#[test]
+fn unowned_bait_cannot_be_put_on() {
+    let mut w = economy_world();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    assert_eq!(
+        w.input(Input::SetBait {
+            rod: 0,
+            bait: "bread".into()
+        }),
+        Err(SimError::NotOwned("bread".into()))
+    );
+}
+
+#[test]
+fn save_is_taken_only_when_dirty() {
+    let mut w = economy_world();
+    assert!(w.take_save().is_some());
+    assert!(w.take_save().is_none());
+    w.go_fishing("pond", "willow", map()).unwrap();
+    w.step();
+    assert!(w.take_save().is_some_and(|p| p.at.is_some()));
+}
+
+#[test]
+fn pause_stops_the_clock() {
+    let mut w = world();
+    w.input(Input::Pause { on: true }).unwrap();
+    let before = w.session().unwrap().clock.minutes;
+    for _ in 0..100 {
+        w.step();
+    }
+    assert_eq!(w.session().unwrap().clock.minutes, before);
+    w.input(Input::Pause { on: false }).unwrap();
+    w.step();
+    assert!(w.session().unwrap().clock.minutes > before);
+}

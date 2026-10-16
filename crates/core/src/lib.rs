@@ -6,6 +6,7 @@
 pub mod clock;
 pub mod content;
 pub mod map;
+pub mod profile;
 pub mod rng;
 pub mod sim;
 pub mod weather;

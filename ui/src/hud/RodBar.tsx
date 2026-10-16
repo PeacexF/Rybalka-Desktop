@@ -1,9 +1,32 @@
 import type { RodView } from "../ipc/bindings/RodView";
+import type { TackleKind } from "../ipc/bindings/TackleKind";
 import type { SessionView } from "../ipc/bindings/SessionView";
 import { sendInput } from "../ipc/game";
 import { useGame } from "../store/game";
 
 const KIND_NAME = { Float: "Поплавочная", Feeder: "Фидер", Spinning: "Спиннинг" } as const;
+
+/** Terminal tackle a cast uses, per rod kind (mirrors `profile::rig_parts`). */
+const RIG: Record<RodView["kind"], [TackleKind, string][]> = {
+  Float: [
+    ["Hook", "крючки"],
+    ["Float", "поплавки"],
+  ],
+  Feeder: [
+    ["Hook", "крючки"],
+    ["Feeder", "кормушки"],
+    ["Groundbait", "прикормка"],
+  ],
+  Spinning: [],
+};
+
+/** Units of each kind of terminal tackle left. */
+function useStock(): (kind: TackleKind) => number {
+  const items = useGame((s) => s.snapshot?.profile?.items);
+  const catalog = useGame((s) => s.catalog);
+  return (kind) =>
+    catalog.filter((i) => i.tackleKind === kind).reduce((n, i) => n + (items?.[i.id] ?? 0), 0);
+}
 
 function stateText(rod: RodView): { text: string; hint: string } {
   const st = rod.state;
@@ -65,6 +88,8 @@ function RodChip({ index, rod }: { index: number; rod: RodView }) {
 
 function RodCard({ index, rod }: { index: number; rod: RodView }) {
   const baits = useGame((s) => s.baits);
+  const items = useGame((s) => s.snapshot?.profile?.items);
+  const stock = useStock();
   const { text, hint } = stateText(rod);
   const st = rod.state.state;
   const canRig = st === "Idle" || st === "Waiting";
@@ -91,9 +116,11 @@ function RodCard({ index, rod }: { index: number; rod: RodView }) {
           >
             {baits
               .filter((b) => (b.kind === "Lure") === wantLure)
+              .filter((b) => !items || (items[b.id] ?? 0) > 0 || b.id === rod.bait)
               .map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
+                  {items && ` · ${items[b.id] ?? 0}`}
                 </option>
               ))}
           </select>
@@ -126,6 +153,13 @@ function RodCard({ index, rod }: { index: number; rod: RodView }) {
         </div>
         <span className="rod-line">
           леска {rod.lineStrengthKg.toFixed(1)} кг · до {rod.maxCastM} м
+          {items &&
+            RIG[rod.kind].map(([kind, name]) => (
+              <span key={kind} className={stock(kind) === 0 ? "out" : ""}>
+                {" "}
+                · {name} {stock(kind)}
+              </span>
+            ))}
         </span>
       </div>
       {hint && <div className="rod-hint">{hint}</div>}

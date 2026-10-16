@@ -15,3 +15,7 @@ export function plural(n: number, one: string, few: string, many: string): strin
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
   return many;
 }
+
+export function formatMoney(rub: number): string {
+  return `${Math.round(rub).toLocaleString("ru-RU")} ₽`;
+}

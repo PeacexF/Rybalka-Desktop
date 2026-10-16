@@ -5,7 +5,7 @@ pub mod gear;
 mod load;
 
 pub use defs::*;
-pub use gear::{GearCatalog, Item, ItemCategory};
+pub use gear::{GearCatalog, Item, ItemCategory, TackleKind};
 pub use load::{ContentError, load_dir};
 
 use std::collections::HashMap;

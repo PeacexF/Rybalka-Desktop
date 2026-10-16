@@ -53,6 +53,7 @@ cargo run -p rybalka-devtools --release --bin gen_map -- \
 - `F3` в игре: оверлей с частотой поклёвок по видам и кнопки времени/погоды.
 - `RYBALKA_DEV_START="21.5,Rain"`: новая сессия стартует в этот час и с этой погодой.
 - Ошибки фронтенда пишутся в stderr процесса (`[ui:error] …`), в том числе в релизной сборке.
+- Сохранение — SQLite в `app_data_dir/save.sqlite` (macOS: `~/Library/Application Support/dev.peacexf.rybalka/`), автосейв каждые 3 с и при выходе. Удалите файл, чтобы начать с чистого листа.
 
 ## Лицензия
 

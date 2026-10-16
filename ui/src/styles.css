@@ -508,3 +508,363 @@ kbd {
     border-color: var(--accent);
   }
 }
+
+.rod-line .out {
+  color: var(--danger);
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: transparent;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.modal-backdrop.dimmed {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Full-screen menus over the blurred pond photo */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(rgba(10, 16, 13, 0.55), rgba(10, 16, 13, 0.85)),
+    url("/locations/pond/willow/bg.jpg") center / cover;
+}
+
+.menu-hero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.menu-hero h1 {
+  margin: 0;
+  font-size: 64px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.menu-card {
+  min-width: 320px;
+  max-width: 460px;
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.menu-title {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.menu-buttons button {
+  padding: 9px 16px;
+  font-size: 15px;
+}
+
+.menu-warn {
+  color: #ffc4b6;
+  font-size: 12px;
+}
+
+/* Hub */
+.hub {
+  width: min(1080px, calc(100% - 48px));
+  height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.hub-head {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.hub-title {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.hub-stat {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-stat .dim {
+  font-size: 11px;
+}
+
+.xp-bar {
+  height: 3px;
+  margin-top: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+.xp-bar > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.hub-tabs,
+.chips {
+  display: flex;
+  gap: 6px;
+}
+
+.hub-tabs {
+  padding: 10px 20px 0;
+}
+
+.hub-tabs button,
+.chips button {
+  border-radius: 999px;
+  padding: 5px 14px;
+}
+
+.hub-tabs button.on,
+.chips button.on {
+  background: var(--accent);
+  color: #1c1608;
+  border-color: transparent;
+}
+
+.hub-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.hub-body h2 {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hub-note {
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: rgba(232, 184, 74, 0.12);
+  border: 1px solid rgba(232, 184, 74, 0.3);
+}
+
+.spot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.spot-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.spot-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.spot-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+/* Shop */
+.shop-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.shop-list li {
+  display: grid;
+  grid-template-columns: 1fr 80px 150px 130px;
+  gap: 14px;
+  align-items: center;
+  padding: 9px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-list li.locked .item-name {
+  color: var(--dim);
+}
+
+.item-name {
+  font-weight: 600;
+}
+
+.item-price {
+  text-align: right;
+}
+
+.item-lock {
+  font-size: 12px;
+  text-align: right;
+}
+
+.shop-list button {
+  justify-self: end;
+  min-width: 90px;
+}
+
+/* Tackle */
+.tackle {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 16px;
+  align-items: start;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.slot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.slot-card.ready {
+  border-color: rgba(134, 196, 111, 0.45);
+}
+
+.slot-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.slot-card select {
+  width: 100%;
+}
+
+.slot-ready {
+  color: var(--ok);
+  font-size: 12px;
+}
+
+.backpack {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--panel-border);
+}
+
+.backpack h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.backpack ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.backpack li {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sale report */
+.sale-card {
+  min-width: 360px;
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sale-card .menu-title {
+  text-align: center;
+}
+
+.sale-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sale-lines li {
+  display: grid;
+  grid-template-columns: 1fr auto 90px;
+  gap: 14px;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+}
+
+.sale-lines li > :last-child {
+  text-align: right;
+}
+
+.sale-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.rank-up {
+  text-align: center;
+  color: var(--ok);
+  font-weight: 600;
+}

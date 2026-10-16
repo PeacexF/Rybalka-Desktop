@@ -7,4 +7,4 @@ import type { RodView } from "./RodView";
 import type { View } from "./View";
 import type { Weather } from "./Weather";
 
-export type SessionView = { locationId: string, spotId: string, spotName: string, background: string, map: string, view: View, clock: ClockView, activeRod: number, rods: Array<RodView>, keepnet: Array<Catch>, groundbait: Array<Patch>, weather: Weather, debug: DebugView | null, };
+export type SessionView = { locationId: string, spotId: string, spotName: string, background: string, map: string, view: View, clock: ClockView, activeRod: number, rods: Array<RodView>, keepnet: Array<Catch>, groundbait: Array<Patch>, weather: Weather, paused: boolean, debug: DebugView | null, };

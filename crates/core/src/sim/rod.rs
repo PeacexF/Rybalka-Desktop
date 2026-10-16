@@ -32,6 +32,8 @@ pub struct Tackle {
     pub line_length_m: f64,
     pub reel_speed_mps: f64,
     pub drag_kg: f64,
+    /// Highest drag the reel (and line) allow.
+    pub max_drag_kg: f64,
     /// Float rods: distance from float to hook.
     pub float_depth_m: f64,
     /// Spinning: retrieve speed while reeling, m/s.
@@ -48,6 +50,7 @@ impl Tackle {
             line_length_m: 100.0,
             reel_speed_mps: 1.0,
             drag_kg: 1.8,
+            max_drag_kg: 3.9,
             float_depth_m: 1.5,
             retrieve_mps: 0.0,
             bait: "worm".into(),
@@ -62,6 +65,7 @@ impl Tackle {
             line_length_m: 150.0,
             reel_speed_mps: 1.2,
             drag_kg: 2.4,
+            max_drag_kg: 5.2,
             float_depth_m: 0.0,
             retrieve_mps: 0.0,
             bait: "maggot".into(),
@@ -76,6 +80,7 @@ impl Tackle {
             line_length_m: 150.0,
             reel_speed_mps: 1.0,
             drag_kg: 3.0,
+            max_drag_kg: 7.8,
             float_depth_m: 0.0,
             retrieve_mps: 0.7,
             bait: "spinner".into(),

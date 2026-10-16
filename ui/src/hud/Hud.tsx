@@ -19,7 +19,6 @@ export const WEATHER_NAME: Record<Weather, string> = {
 
 export function Hud() {
   const session = useGame((s) => s.snapshot?.session ?? null);
-  const toasts = useGame((s) => s.toasts);
   const keepnetOpen = useGame((s) => s.keepnetOpen);
   const debug = useGame((s) => s.debug);
   if (!session) return null;
@@ -45,14 +44,6 @@ export function Hud() {
         <button className="panel keepnet-btn" onClick={() => useGame.getState().toggleKeepnet()}>
           Садок · {session.keepnet.length} <kbd>S</kbd>
         </button>
-      </div>
-
-      <div className="toasts">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}`}>
-            {t.text}
-          </div>
-        ))}
       </div>
 
       {rod?.state.state === "Fighting" && <FightBar rod={rod} state={rod.state} />}

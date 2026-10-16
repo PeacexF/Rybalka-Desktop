@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::clock::Clock;
-use crate::content::{BaitKind, Content, SpotDef, View, ZoneDef};
+use crate::content::{BaitKind, Content, SpotDef, TackleKind, View, ZoneDef};
 use crate::map::WaterMap;
+use crate::profile::{Place, Profile, SaleReport};
 use crate::rng::Rng;
 use crate::weather::{Weather, WeatherState};
 use bite::Presentation;
@@ -97,6 +98,10 @@ pub enum Input {
     FastForward {
         on: bool,
     },
+    /// Stop the clock and the rods (pause menu).
+    Pause {
+        on: bool,
+    },
     /// Developer cheat (only with the debug overlay on): set hour and/or weather.
     Debug {
         hour: Option<f64>,
@@ -109,18 +114,48 @@ pub enum Input {
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 #[ts(export)]
 pub enum GameEvent {
-    CastLanded { rod: usize },
-    CastOnLand { rod: usize },
-    Bite { rod: usize },
-    Hooked { rod: usize },
-    Missed { rod: usize },
-    FishLeft { rod: usize },
-    LineBroke { rod: usize },
-    Escaped { rod: usize },
-    Landed { rod: usize, catch: Catch },
-    Snagged { rod: usize },
-    Unsnagged { rod: usize },
-    WeatherChanged { weather: Weather },
+    CastLanded {
+        rod: usize,
+    },
+    CastOnLand {
+        rod: usize,
+    },
+    Bite {
+        rod: usize,
+    },
+    Hooked {
+        rod: usize,
+    },
+    Missed {
+        rod: usize,
+    },
+    FishLeft {
+        rod: usize,
+    },
+    LineBroke {
+        rod: usize,
+    },
+    Escaped {
+        rod: usize,
+    },
+    Landed {
+        rod: usize,
+        catch: Catch,
+    },
+    Snagged {
+        rod: usize,
+    },
+    Unsnagged {
+        rod: usize,
+    },
+    /// A cast needs something the player has run out of (display name).
+    OutOf {
+        rod: usize,
+        item: String,
+    },
+    WeatherChanged {
+        weather: Weather,
+    },
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -139,6 +174,12 @@ pub enum SimError {
     WrongBait(String),
     #[error("debug commands need the debug overlay")]
     DebugOff,
+    #[error("no game loaded")]
+    NoProfile,
+    #[error("no rod is assembled")]
+    NoTackle,
+    #[error("`{0}` is not in the backpack")]
+    NotOwned(String),
 }
 
 /// A fishing session at one spot.
@@ -148,10 +189,13 @@ pub struct Session {
     pub map: WaterMap,
     pub clock: Clock,
     pub rods: Vec<Rod>,
+    /// Profile slot of each rod.
+    pub slots: Vec<usize>,
     pub active: usize,
     pub keepnet: Vec<Catch>,
     pub groundbait: Vec<groundbait::Patch>,
     pub weather: WeatherState,
+    pub paused: bool,
 }
 
 /// Authoritative game state, advanced in fixed steps.
@@ -161,6 +205,10 @@ pub struct World {
     tick: u64,
     next_catch_id: u64,
     session: Option<Session>,
+    /// Loaded game. Without one (tests, headless tools) consumables are unlimited.
+    profile: Option<Profile>,
+    /// The profile changed since the last [`World::take_save`].
+    dirty: bool,
     events: Vec<GameEvent>,
     pub debug: bool,
 }
@@ -173,6 +221,8 @@ impl World {
             tick: 0,
             next_catch_id: 1,
             session: None,
+            profile: None,
+            dirty: false,
             events: Vec::new(),
             debug: false,
         }
@@ -186,12 +236,26 @@ impl World {
         self.session.as_ref()
     }
 
+    /// Start a session with explicit tackle (tests and headless tools).
     pub fn start_session(
         &mut self,
         location_id: &str,
         spot_id: &str,
         map: WaterMap,
         rods: Vec<Tackle>,
+    ) -> Result<(), SimError> {
+        let slots = (0..rods.len()).collect();
+        self.open_session(location_id, spot_id, map, rods, slots, Clock::default())
+    }
+
+    fn open_session(
+        &mut self,
+        location_id: &str,
+        spot_id: &str,
+        map: WaterMap,
+        rods: Vec<Tackle>,
+        slots: Vec<usize>,
+        clock: Clock,
     ) -> Result<(), SimError> {
         let loc = self
             .content
@@ -201,7 +265,6 @@ impl World {
             .spot(spot_id)
             .ok_or_else(|| SimError::UnknownSpot(spot_id.into()))?
             .clone();
-        let clock = Clock::default();
         let weather = WeatherState::new(clock.day(), clock.hour(), &mut self.rng);
         self.session = Some(Session {
             location_id: location_id.into(),
@@ -210,11 +273,117 @@ impl World {
             clock,
             weather,
             rods: rods.into_iter().map(Rod::new).collect(),
+            slots,
             active: 0,
             keepnet: Vec::new(),
             groundbait: Vec::new(),
+            paused: false,
         });
         Ok(())
+    }
+
+    pub fn profile(&self) -> Option<&Profile> {
+        self.profile.as_ref()
+    }
+
+    /// Load (or unload) a game. Any running session is dropped.
+    pub fn set_profile(&mut self, profile: Option<Profile>) {
+        self.session = None;
+        self.profile = profile;
+        self.dirty = self.profile.is_some();
+    }
+
+    /// Change the profile between sessions (shop, tackle).
+    pub fn update_profile<R>(
+        &mut self,
+        f: impl FnOnce(&mut Profile, &Content) -> R,
+    ) -> Result<R, SimError> {
+        let p = self.profile.as_mut().ok_or(SimError::NoProfile)?;
+        self.dirty = true;
+        Ok(f(p, &self.content))
+    }
+
+    /// Go fishing with the rods assembled in the profile's slots.
+    pub fn go_fishing(
+        &mut self,
+        location_id: &str,
+        spot_id: &str,
+        map: WaterMap,
+    ) -> Result<(), SimError> {
+        let p = self.profile.as_ref().ok_or(SimError::NoProfile)?;
+        let (slots, rods): (Vec<usize>, Vec<Tackle>) = (0..p.slots.len())
+            .filter_map(|i| p.tackle_for(&self.content, i).map(|t| (i, t)))
+            .unzip();
+        if rods.is_empty() {
+            return Err(SimError::NoTackle);
+        }
+        let clock = Clock {
+            minutes: p.clock_min,
+            ..Clock::default()
+        };
+        let (keepnet, next_id) = (p.keepnet.clone(), p.next_catch_id);
+        self.open_session(location_id, spot_id, map, rods, slots, clock)?;
+        self.session.as_mut().expect("just opened").keepnet = keepnet;
+        self.next_catch_id = next_id;
+        if let Some(p) = &mut self.profile {
+            p.at = Some(Place {
+                location: location_id.into(),
+                spot: spot_id.into(),
+            });
+        }
+        self.dirty = true;
+        Ok(())
+    }
+
+    /// Copy the live session state (keepnet, clock, rod settings) into the profile.
+    pub fn sync_profile(&mut self) {
+        let (Some(s), Some(p)) = (&self.session, &mut self.profile) else {
+            return;
+        };
+        p.keepnet.clone_from(&s.keepnet);
+        p.clock_min = s.clock.minutes;
+        p.next_catch_id = self.next_catch_id;
+        for (r, &i) in s.rods.iter().zip(&s.slots) {
+            let Some(slot) = p.slots.get_mut(i) else {
+                continue;
+            };
+            let t = &r.tackle;
+            slot.bait = (!t.bait.is_empty()).then(|| t.bait.clone());
+            slot.float_depth_m = t.float_depth_m;
+            slot.drag_kg = t.drag_kg;
+            slot.retrieve_mps = t.retrieve_mps;
+        }
+    }
+
+    /// Leave the water: fish still in the landing net go to the keepnet,
+    /// and the keepnet is sold.
+    pub fn leave_water(&mut self) -> Result<SaleReport, SimError> {
+        if self.profile.is_none() {
+            return Err(SimError::NoProfile);
+        }
+        let s = self.session.as_mut().ok_or(SimError::NoSession)?;
+        for r in &mut s.rods {
+            if let RodState::Landed { catch } = &r.state {
+                s.keepnet.push(catch.clone());
+                r.state = RodState::Idle;
+            }
+        }
+        self.sync_profile();
+        self.session = None;
+        let p = self.profile.as_mut().expect("checked above");
+        p.at = None;
+        self.dirty = true;
+        Ok(p.sell_keepnet(&self.content))
+    }
+
+    /// The profile to save, if it changed since the last call.
+    pub fn take_save(&mut self) -> Option<Profile> {
+        if !self.dirty {
+            return None;
+        }
+        self.sync_profile();
+        self.dirty = false;
+        self.profile.clone()
     }
 
     pub fn end_session(&mut self) -> Option<Session> {
@@ -223,6 +392,13 @@ impl World {
 
     /// Apply a player command immediately.
     pub fn input(&mut self, input: Input) -> Result<(), SimError> {
+        let from = self.events.len();
+        let res = self.apply(input);
+        self.settle(from);
+        res
+    }
+
+    fn apply(&mut self, input: Input) -> Result<(), SimError> {
         let s = self.session.as_mut().ok_or(SimError::NoSession)?;
         let rod_idx = match &input {
             Input::Cast { rod, .. }
@@ -236,7 +412,7 @@ impl World {
             | Input::SelectRod { rod }
             | Input::KeepCatch { rod }
             | Input::ReleaseCatch { rod } => Some(*rod),
-            Input::FastForward { .. } | Input::Debug { .. } => None,
+            Input::FastForward { .. } | Input::Pause { .. } | Input::Debug { .. } => None,
         };
         if let Some(i) = rod_idx
             && i >= s.rods.len()
@@ -245,7 +421,15 @@ impl World {
         }
 
         match input {
-            Input::Cast { rod, x, y } => cast(s, rod, Point { x, y }, &mut self.rng),
+            Input::Cast { rod, x, y } => {
+                if let Some(p) = &self.profile
+                    && let Some(item) = p.missing_for_cast(&self.content, &s.rods[rod].tackle)
+                {
+                    self.events.push(GameEvent::OutOf { rod, item });
+                    return Ok(());
+                }
+                cast(s, rod, Point { x, y }, &mut self.rng);
+            }
             Input::Strike { rod } => strike(&self.content, s, rod, &mut self.rng, &mut self.events),
             Input::Reel { rod, on } => match &mut s.rods[rod].state {
                 RodState::Fighting { fight, .. } => fight.reeling = on,
@@ -274,7 +458,7 @@ impl World {
             }
             Input::SetDrag { rod, kg } => {
                 let t = &mut s.rods[rod].tackle;
-                t.drag_kg = kg.clamp(0.1, t.line_strength_kg * 1.3);
+                t.drag_kg = kg.clamp(0.1, t.max_drag_kg);
             }
             Input::SetFloatDepth { rod, m } => {
                 let r = &mut s.rods[rod];
@@ -291,6 +475,9 @@ impl World {
                 if (def.kind == BaitKind::Lure) != (r.tackle.kind == RodKind::Spinning) {
                     return Err(SimError::WrongBait(bait));
                 }
+                if self.profile.as_ref().is_some_and(|p| p.count(&bait) == 0) {
+                    return Err(SimError::NotOwned(bait));
+                }
                 r.tackle.bait = bait;
                 retrieve(r, &s.spot.view);
             }
@@ -306,6 +493,16 @@ impl World {
                 }
             }
             Input::FastForward { on } => s.clock.fast_forward = on,
+            Input::Pause { on } => {
+                s.paused = on;
+                for r in &mut s.rods {
+                    match &mut r.state {
+                        RodState::Fighting { fight, .. } => fight.reeling = false,
+                        RodState::Lure { run, .. } => run.reeling = false,
+                        _ => {}
+                    }
+                }
+            }
             Input::Debug { hour, weather } => {
                 if !self.debug {
                     return Err(SimError::DebugOff);
@@ -328,9 +525,17 @@ impl World {
     /// Advance the simulation by one fixed tick.
     pub fn step(&mut self) {
         self.tick += 1;
-        let Some(s) = self.session.as_mut() else {
+        let from = self.events.len();
+        self.step_session();
+        self.settle(from);
+    }
+
+    fn step_session(&mut self) {
+        let Some(s) = self.session.as_mut().filter(|s| !s.paused) else {
             return;
         };
+        // Clock, keepnet and rods change every tick on the water.
+        self.dirty |= self.profile.is_some();
         let dt = TICK_DT;
         s.clock.advance(dt);
         groundbait::decay(&mut s.groundbait, dt);
@@ -351,6 +556,47 @@ impl World {
                 &mut self.events,
                 &mut self.next_catch_id,
             );
+        }
+    }
+
+    /// Side effects of events from `from` on: groundbait from feeder casts and
+    /// consumables used up (only with a profile; otherwise they are unlimited).
+    fn settle(&mut self, from: usize) {
+        let Some(s) = self.session.as_mut() else {
+            return;
+        };
+        let content = &*self.content;
+        let mut profile = self.profile.as_mut();
+        for e in &self.events[from..] {
+            let (rod, chance) = match e {
+                GameEvent::CastLanded { rod } => {
+                    let r = &s.rods[*rod];
+                    if let (RodKind::Feeder, RodState::Waiting { at, .. }) =
+                        (r.tackle.kind, &r.state)
+                        && profile
+                            .as_mut()
+                            .is_none_or(|p| p.take_kind(content, TackleKind::Groundbait))
+                    {
+                        groundbait::add(&mut s.groundbait, &s.spot.view, *at, groundbait::PER_CAST);
+                    }
+                    continue;
+                }
+                GameEvent::LineBroke { rod } => {
+                    if let Some(p) = profile.as_mut() {
+                        p.lose_rig(content, &s.rods[*rod].tackle);
+                    }
+                    continue;
+                }
+                GameEvent::Landed { rod, .. } | GameEvent::Escaped { rod } => (*rod, 1.0),
+                GameEvent::FishLeft { rod } => (*rod, BAIT_LOST_FISH_LEFT),
+                GameEvent::Missed { rod } => (*rod, BAIT_LOST_MISSED),
+                _ => continue,
+            };
+            if let Some(p) = profile.as_mut()
+                && self.rng.chance(chance)
+            {
+                p.use_bait(content, &s.rods[rod].tackle);
+            }
         }
     }
 
@@ -467,6 +713,11 @@ fn roll_bite(
     })
 }
 
+/// Chance that a fish that nibbled and left took the bait with it.
+const BAIT_LOST_FISH_LEFT: f64 = 0.5;
+/// Chance that a missed strike tore the bait off the hook.
+const BAIT_LOST_MISSED: f64 = 0.3;
+
 /// Chance that a predator hitting a lure on the retrieve hooks itself.
 const SELF_HOOK: f64 = 0.6;
 
@@ -516,14 +767,6 @@ fn step_rod(
                             cell,
                             calm: CALM_AFTER_CAST,
                         };
-                        if r.tackle.kind == RodKind::Feeder {
-                            groundbait::add(
-                                &mut s.groundbait,
-                                &s.spot.view,
-                                at,
-                                groundbait::PER_CAST,
-                            );
-                        }
                         events.push(GameEvent::CastLanded { rod: i });
                     }
                     None => {

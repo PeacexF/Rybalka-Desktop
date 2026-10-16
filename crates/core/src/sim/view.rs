@@ -1,5 +1,7 @@
 //! Serializable views of the world streamed to the UI.
 
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -7,6 +9,7 @@ use super::bite::{self, BitePhase, Presentation};
 use super::rod::{Point, Rod, RodKind, RodState};
 use super::{Catch, GameEvent, Session, World, fight_point};
 use crate::content::View;
+use crate::profile::{self, Profile, Slot};
 
 /// State streamed to the UI every tick.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -16,7 +19,45 @@ pub struct Snapshot {
     #[ts(type = "number")]
     pub tick: u64,
     pub session: Option<SessionView>,
+    /// The loaded game; `None` in the main menu.
+    pub profile: Option<ProfileView>,
     pub events: Vec<GameEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ProfileView {
+    pub money: f64,
+    pub xp: f64,
+    pub rank: u32,
+    pub rank_name: String,
+    /// Experience at which the current rank starts.
+    pub rank_xp: f64,
+    /// Experience needed for the next rank (`None` at the top).
+    pub next_rank_xp: Option<f64>,
+    pub items: BTreeMap<String, u32>,
+    /// Slot setup as last synced (stale while fishing).
+    pub slots: Vec<Slot>,
+    /// Unsold fish.
+    pub keepnet: usize,
+}
+
+impl ProfileView {
+    pub fn new(p: &Profile) -> Self {
+        let rank = p.rank();
+        Self {
+            money: p.money,
+            xp: p.xp,
+            rank,
+            rank_name: profile::rank_name(rank).into(),
+            rank_xp: profile::RANKS[rank as usize].0,
+            next_rank_xp: profile::RANKS.get(rank as usize + 1).map(|r| r.0),
+            items: p.items.clone(),
+            slots: p.slots.clone(),
+            keepnet: p.keepnet.len(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -35,6 +76,7 @@ pub struct SessionView {
     pub keepnet: Vec<Catch>,
     pub groundbait: Vec<super::groundbait::Patch>,
     pub weather: crate::weather::Weather,
+    pub paused: bool,
     pub debug: Option<DebugView>,
 }
 
@@ -129,6 +171,7 @@ impl World {
         Snapshot {
             tick: self.tick,
             session: self.session.as_ref().map(|s| self.session_view(s)),
+            profile: self.profile().map(ProfileView::new),
             events,
         }
     }
@@ -151,6 +194,7 @@ impl World {
             keepnet: s.keepnet.clone(),
             groundbait: s.groundbait.clone(),
             weather: s.weather.current,
+            paused: s.paused,
             debug: self.debug.then(|| DebugView {
                 bite_rates: s.rods.iter().map(|r| self.debug_rates(s, r)).collect(),
             }),
@@ -295,4 +339,98 @@ impl World {
             })
             .collect()
     }
+}
+
+/// A shop listing.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ShopItem {
+    pub id: String,
+    pub name: String,
+    pub category: crate::content::ItemCategory,
+    pub price: f64,
+    /// Units per purchase.
+    pub pack: u32,
+    pub rank: u32,
+    pub rank_name: String,
+    pub stats: String,
+    /// Rods only: which kind.
+    pub rod_kind: Option<RodKind>,
+    /// Terminal tackle only: which kind.
+    pub tackle_kind: Option<crate::content::TackleKind>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LocationInfo {
+    pub id: String,
+    pub name: String,
+    pub spots: Vec<SpotInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SpotInfo {
+    pub id: String,
+    pub name: String,
+    pub background: String,
+}
+
+impl World {
+    pub fn catalog(&self) -> Vec<ShopItem> {
+        self.content
+            .items()
+            .map(|i| ShopItem {
+                id: i.id().into(),
+                name: i.name().into(),
+                category: i.category(),
+                price: i.price(),
+                pack: i.pack(),
+                rank: i.rank(),
+                rank_name: profile::rank_name(i.rank()).into(),
+                stats: i.stats(),
+                rod_kind: match i {
+                    crate::content::Item::Rod(r) => Some(r.kind),
+                    _ => None,
+                },
+                tackle_kind: match i {
+                    crate::content::Item::Tackle(t) => Some(t.kind),
+                    _ => None,
+                },
+            })
+            .collect()
+    }
+
+    pub fn locations(&self) -> Vec<LocationInfo> {
+        self.content
+            .locations
+            .iter()
+            .map(|l| LocationInfo {
+                id: l.id.clone(),
+                name: l.name.clone(),
+                spots: l
+                    .spots
+                    .iter()
+                    .map(|s| SpotInfo {
+                        id: s.id.clone(),
+                        name: s.name.clone(),
+                        background: s.background.clone(),
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
+}
+
+/// What the main menu can offer.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MenuState {
+    pub has_save: bool,
+    /// Why saves don't work, if they don't.
+    pub save_error: Option<String>,
 }
