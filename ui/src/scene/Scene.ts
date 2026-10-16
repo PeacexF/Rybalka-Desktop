@@ -105,6 +105,7 @@ export class Scene {
   }
 
   destroy(): void {
+    if (this.fog.texture !== Texture.EMPTY) this.fog.texture.destroy(true);
     this.app.destroy(true, { children: true });
   }
 
@@ -432,8 +433,10 @@ export class Scene {
       grad.addColorStop(1, "rgba(223,228,226,0.18)");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, c.width, c.height);
-      this.fog.texture.destroy(true);
+      // The sprite starts with the shared Texture.EMPTY, which must survive.
+      const old = this.fog.texture;
       this.fog.texture = Texture.from(c);
+      if (old !== Texture.EMPTY) old.destroy(true);
     }
     this.fog.width = width;
     this.fog.height = height;
