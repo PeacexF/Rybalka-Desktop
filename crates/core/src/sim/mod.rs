@@ -2,6 +2,7 @@
 
 pub mod bite;
 pub mod fight;
+pub mod groundbait;
 pub mod rod;
 mod view;
 
@@ -16,7 +17,7 @@ use crate::map::WaterMap;
 use crate::rng::Rng;
 use bite::Presentation;
 use fight::Outcome;
-use rod::{BiteState, Hooked, Point, Rod, RodState, Tackle};
+use rod::{BiteState, Hooked, Point, Rod, RodKind, RodState, Tackle};
 
 pub use view::*;
 
@@ -26,7 +27,7 @@ pub const TICK_HZ: u32 = 20;
 pub const TICK_DT: f64 = 1.0 / TICK_HZ as f64;
 
 /// Horizontal field of view: at distance `d` the image is `FOV_K * d` metres wide.
-const FOV_K: f64 = 1.2;
+pub(crate) const FOV_K: f64 = 1.2;
 /// Quiet period after a cast before fish may bite, seconds.
 const CALM_AFTER_CAST: f64 = 3.0;
 
@@ -103,6 +104,7 @@ pub struct Session {
     pub rods: Vec<Rod>,
     pub active: usize,
     pub keepnet: Vec<Catch>,
+    pub groundbait: Vec<groundbait::Patch>,
 }
 
 /// Authoritative game state, advanced in fixed steps.
@@ -160,6 +162,7 @@ impl World {
             rods: rods.into_iter().map(Rod::new).collect(),
             active: 0,
             keepnet: Vec::new(),
+            groundbait: Vec::new(),
         });
         Ok(())
     }
@@ -242,6 +245,7 @@ impl World {
         };
         let dt = TICK_DT;
         s.clock.advance(dt);
+        groundbait::decay(&mut s.groundbait, dt);
         let hour = s.clock.hour();
         for i in 0..s.rods.len() {
             step_rod(
@@ -360,6 +364,14 @@ fn step_rod(
                             cell,
                             calm: CALM_AFTER_CAST,
                         };
+                        if r.tackle.kind == RodKind::Feeder {
+                            groundbait::add(
+                                &mut s.groundbait,
+                                &s.spot.view,
+                                at,
+                                groundbait::PER_CAST,
+                            );
+                        }
                         events.push(GameEvent::CastLanded { rod: i });
                     }
                     None => {
@@ -389,7 +401,7 @@ fn step_rod(
                 bait_depth_m,
                 bait: &r.tackle.bait,
                 hour,
-                bonus: 1.0,
+                bonus: groundbait::bonus(&s.groundbait, &s.spot.view, *at),
             };
             let rates = bite::rates(content, zone, &p);
             let total: f64 = rates.iter().map(|(_, r)| r).sum();

@@ -2,5 +2,8 @@
 [
     (id: "worm", name: "Червь", kind: Natural),
     (id: "maggot", name: "Опарыш", kind: Natural),
+    (id: "bloodworm", name: "Мотыль", kind: Natural),
     (id: "bread", name: "Хлеб", kind: Natural),
+    (id: "corn", name: "Кукуруза", kind: Natural),
+    (id: "barley", name: "Перловка", kind: Natural),
 ]

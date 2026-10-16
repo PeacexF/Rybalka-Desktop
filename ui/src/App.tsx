@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameEvent } from "./ipc/bindings/GameEvent";
 import { baits, sendInput, setDebug, startSession, subscribe } from "./ipc/game";
+import { sfx } from "./audio";
 import { Hud } from "./hud/Hud";
 import { Scene } from "./scene/Scene";
 import { WaterMap } from "./scene/WaterMap";
@@ -13,6 +14,27 @@ const EVENT_TOASTS: Partial<Record<GameEvent["type"], [string, "info" | "bad" | 
   LineBroke: ["Обрыв лески!", "bad"],
   Escaped: ["Сход!", "bad"],
 };
+
+function playEventSound(e: GameEvent): void {
+  const s = useGame.getState().snapshot?.session;
+  const rod = s?.rods[e.rod];
+  switch (e.type) {
+    case "CastLanded":
+      sfx.plop(rod?.kind === "Feeder" ? 1.4 : 1);
+      break;
+    case "Bite":
+      if (rod?.kind === "Feeder") sfx.bell();
+      else if (s && e.rod !== s.activeRod) sfx.bloop();
+      break;
+    case "Hooked":
+    case "Landed":
+      sfx.splash();
+      break;
+    case "LineBroke":
+      sfx.snap();
+      break;
+  }
+}
 
 interface Hover {
   x: number;
@@ -53,6 +75,7 @@ export function App() {
     let mapUrl = "";
     const off = onGameEvent((e) => {
       sceneRef.current?.onEvent(e);
+      playEventSound(e);
       const t = EVENT_TOASTS[e.type];
       if (t) useGame.getState().toast(t[0], t[1]);
     });
@@ -72,6 +95,20 @@ export function App() {
     return off;
   }, []);
 
+  // Reel clicks and drag ratchet while fighting.
+  useEffect(() => {
+    let acc = 0;
+    const id = setInterval(() => {
+      const s = useGame.getState().snapshot?.session;
+      const st = s?.rods[s.activeRod]?.state;
+      if (st?.state !== "Fighting") return;
+      acc += 1;
+      if (st.slipping) sfx.click(0.18);
+      else if (st.reeling && acc % 2 === 0) sfx.click(0.07);
+    }, 45);
+    return () => clearInterval(id);
+  }, []);
+
   // Keyboard.
   useEffect(() => {
     const active = () => {
@@ -89,6 +126,16 @@ export function App() {
         case "KeyT":
           sendInput({ type: "FastForward", on: true });
           break;
+        case "Digit1":
+        case "Digit2":
+        case "Digit3": {
+          // Selecting a rod that has a bite strikes right away (as in RR).
+          const i = Number(e.code.slice(5)) - 1;
+          const st = useGame.getState().snapshot?.session?.rods[i]?.state.state;
+          sendInput({ type: "SelectRod", rod: i });
+          if (st === "Bite") sendInput({ type: "Strike", rod: i });
+          break;
+        }
         case "KeyS":
           useGame.getState().toggleKeepnet();
           break;

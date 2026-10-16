@@ -20,9 +20,29 @@ interface Ripple {
 
 /** Visual height of the float at scale 1, px. */
 const FLOAT_H = 56;
+/** Rod butt positions per slot, as fractions of the screen width. */
+const BUTT_X = [0.62, 0.76, 0.89];
+
+/** Graphics for one rod slot: blank, line and (for float rods) the float. */
+class RodGfx {
+  readonly blank = new Graphics();
+  readonly line = new Graphics();
+  readonly float = new Container();
+  readonly floatBody = new Graphics();
+  readonly floatMask = new Graphics();
+  /** Smoothed rig position (screen px) while fighting. */
+  fightPos: Vec | null = null;
+  lastNibbleRipple = 0;
+
+  constructor() {
+    this.floatBody.mask = this.floatMask;
+    this.float.addChild(this.floatBody, this.floatMask);
+    drawFloat(this.floatBody, this.floatMask);
+  }
+}
 
 /**
- * Renders a fishing spot: photo background, rod, line, float and water effects.
+ * Renders a fishing spot: photo background, rods, lines, floats and water effects.
  *
  * The scene works in screen pixels; game positions arrive in normalized image
  * coordinates and are mapped through the "cover" fit of the background.
@@ -30,30 +50,23 @@ const FLOAT_H = 56;
 export class Scene {
   readonly app = new Application();
   private readonly world = new Container();
+  private readonly lines = new Container();
+  private readonly floats = new Container();
+  private readonly blanks = new Container();
   private bg = new Sprite();
   private readonly ripples = new Graphics();
-  private readonly line = new Graphics();
-  private readonly rod = new Graphics();
-  private readonly float = new Container();
-  private readonly floatBody = new Graphics();
-  private readonly floatMask = new Graphics();
+  private rods: RodGfx[] = [];
   private bgUrl = "";
   private session: SessionView | null = null;
   private snapshotAt = 0;
   private time = 0;
   private rippleList: Ripple[] = [];
-  /** Smoothed float position (screen px) while fighting. */
-  private fightPos: Vec | null = null;
-  private lastNibbleRipple = 0;
 
   async init(host: HTMLElement): Promise<void> {
     await this.app.init({ resizeTo: host, background: "#0e1512", antialias: true });
     host.appendChild(this.app.canvas);
-    this.floatBody.mask = this.floatMask;
-    this.float.addChild(this.floatBody, this.floatMask);
-    this.world.addChild(this.bg, this.ripples, this.line, this.float, this.rod);
+    this.world.addChild(this.bg, this.ripples, this.lines, this.floats, this.blanks);
     this.app.stage.addChild(this.world);
-    this.drawFloat();
     this.app.ticker.add((t) => this.frame(t.deltaMS / 1000));
   }
 
@@ -65,22 +78,25 @@ export class Scene {
   update(session: SessionView | null, at: number): void {
     this.session = session;
     this.snapshotAt = at;
-    if (session) {
-      const url = `/${session.background}`;
-      if (url !== this.bgUrl) {
-        this.bgUrl = url;
-        Assets.load<Texture>(url).then((tex) => {
-          this.bg.texture = tex;
-        });
-      }
+    if (!session) return;
+    const url = `/${session.background}`;
+    if (url !== this.bgUrl) {
+      this.bgUrl = url;
+      Assets.load<Texture>(url).then((tex) => {
+        this.bg.texture = tex;
+      });
+    }
+    while (this.rods.length < session.rods.length) {
+      const g = new RodGfx();
+      this.rods.push(g);
+      this.lines.addChild(g.line);
+      this.floats.addChild(g.float);
+      this.blanks.addChild(g.blank);
     }
   }
 
   onEvent(e: GameEvent): void {
-    const s = this.session;
-    if (!s) return;
-    const rod = s.rods[e.rod];
-    const st = rod?.state;
+    const st = this.session?.rods[e.rod]?.state;
     const at = st && "at" in st ? st.at : st?.state === "Casting" ? st.to : null;
     if (!at) return;
     const p = this.toScreen(at);
@@ -138,28 +154,26 @@ export class Scene {
     this.bg.height = f.h;
 
     const s = this.session;
-    const rod = s?.rods[s.activeRod];
-    this.drawRodAndFloat(rod ?? null, dt);
+    this.rods.forEach((g, i) => {
+      const rod = s?.rods[i];
+      this.drawRod(g, i, rod ?? null, i === s?.activeRod, dt);
+    });
     this.drawRipples(dt);
   }
 
-  private rodButt(): Vec {
-    const { width, height } = this.app.screen;
-    return { x: width * 0.64, y: height * 1.08 };
-  }
-
-  private drawRodAndFloat(rod: RodView | null, dt: number): void {
-    this.rod.clear();
-    this.line.clear();
-    this.float.visible = false;
+  private drawRod(g: RodGfx, slot: number, rod: RodView | null, active: boolean, dt: number) {
+    g.blank.clear();
+    g.line.clear();
+    g.float.visible = false;
     if (!rod) return;
 
-    const { height } = this.app.screen;
-    const butt = this.rodButt();
+    const { width, height } = this.app.screen;
+    const butt = { x: width * (BUTT_X[slot] ?? 0.6), y: height * 1.08 };
     const st = rod.state;
     const since = (performance.now() - this.snapshotAt) / 1000;
+    const isFloat = rod.kind === "Float";
 
-    // Where the float is and how it looks this frame.
+    // Where the rig is and how it looks this frame.
     let target: Vec | null = null;
     let scale = 1;
     let sink = 0; // px below the surface (scaled)
@@ -167,13 +181,14 @@ export class Scene {
     let tilt = 0;
     let tension = 0.15;
     let inAir = false;
+    let tipKick = 0; // quivertip deflection, fraction of screen height (+ = pulled down)
 
     const restTip = { x: butt.x - height * 0.06, y: butt.y - height * 0.5 };
 
     switch (st.state) {
       case "Idle":
       case "Landed":
-        this.fightPos = null;
+        g.fightPos = null;
         break;
       case "Casting": {
         const to = this.toScreen(st.to);
@@ -198,11 +213,12 @@ export class Scene {
       case "Waiting": {
         target = this.toScreen(st.at);
         scale = this.scaleAt(st.at.y);
-        sink = (Math.sin(this.time * 1.7) * 0.8 + 0.8) * scale;
+        sink = (Math.sin(this.time * 1.7 + slot) * 0.8 + 0.8) * scale;
         if (st.lying) {
           tilt = 1.35;
           sink = 4 * scale;
         }
+        tension = isFloat ? 0.15 : 0.35;
         break;
       }
       case "Bite": {
@@ -210,42 +226,49 @@ export class Scene {
         scale = this.scaleAt(st.at.y);
         const t = st.phaseT + since;
         if (st.lying) tilt = 1.35;
+        tension = isFloat ? 0.25 : 0.4;
         switch (st.phase) {
           case "Nibble":
             sink = (Math.abs(Math.sin(t * 23)) * 5 + Math.sin(t * 7) * 2) * scale;
             target.x += Math.sin(t * 31) * 1.2 * scale;
-            if (this.time - this.lastNibbleRipple > 0.45) {
-              this.lastNibbleRipple = this.time;
+            tipKick = Math.abs(Math.sin(t * 19)) * 0.012;
+            if (isFloat && this.time - g.lastNibbleRipple > 0.45) {
+              g.lastNibbleRipple = this.time;
               this.addRipple(target, scale, 0.35);
             }
             break;
           case "Dip":
             sink = Math.sin(Math.PI * Math.min(1, t / 0.35)) * 22 * scale;
+            tipKick = Math.sin(Math.PI * Math.min(1, t / 0.35)) * 0.03;
             break;
           case "Sink":
           case "Grab":
             sink = Math.min(1, t / 0.25) * FLOAT_H * scale;
+            tipKick = Math.min(1, t / 0.2) * 0.06 + Math.sin(t * 14) * 0.008;
             break;
           case "Lead":
             sink = 14 * scale;
             target.x += Math.min(t, 2.5) * 22 * scale;
             target.y -= Math.min(t, 2.5) * 3 * scale;
+            tipKick = Math.min(1, t / 0.8) * 0.05;
             break;
           case "Lift":
             sink = -Math.min(1, t / 0.6) * 10 * scale;
             tilt = Math.max(0, Math.min(1, (t - 0.6) / 0.8)) * 1.35;
+            // Bream lifts the feeder: the tip springs back straight.
+            tipKick = -Math.min(1, t / 0.5) * 0.025;
+            tension = 0.05;
             break;
         }
-        tension = 0.25;
         break;
       }
       case "Fighting": {
         const p = this.toScreen(st.at);
-        if (!this.fightPos) this.fightPos = { ...p };
+        if (!g.fightPos) g.fightPos = { ...p };
         const k = 1 - Math.exp(-dt * 6);
-        this.fightPos.x += (p.x - this.fightPos.x) * k;
-        this.fightPos.y += (p.y - this.fightPos.y) * k;
-        target = { ...this.fightPos };
+        g.fightPos.x += (p.x - g.fightPos.x) * k;
+        g.fightPos.y += (p.y - g.fightPos.y) * k;
+        target = { ...g.fightPos };
         scale = this.scaleAt(this.toImage(target.x, target.y).y);
         sink = (18 + Math.sin(this.time * 9) * 6) * scale;
         tilt = Math.sin(this.time * 4) * 0.3;
@@ -255,24 +278,33 @@ export class Scene {
       }
     }
 
-    // Rod: aims at the float, bends with tension.
+    // Rod: aims at the rig, bends with tension; quivertip kicks on bites.
     const aim = target ?? restTip;
-    const dir = norm({ x: aim.x - butt.x, y: Math.min(aim.y - butt.y, -height * 0.2) });
-    const len = height * 0.62;
+    // Rods stand fairly upright (as on a rod pod) and lean towards their rig.
+    const dir = norm({ x: (aim.x - butt.x) * 0.45, y: -height * 0.85 });
+    const len = height * (active ? 0.62 : 0.56);
     const bend = 0.08 + tension * 0.35;
     const tip = {
       x: butt.x + dir.x * len * (1 - bend * 0.3),
-      y: butt.y + dir.y * len * (1 - bend) + bend * height * 0.12,
+      y: butt.y + dir.y * len * (1 - bend) + (bend + tipKick) * height * 0.12 + tipKick * height,
     };
     const ctrl = { x: butt.x + dir.x * len * 0.55, y: butt.y + dir.y * len * 0.55 };
-    drawTapered(this.rod, butt, ctrl, tip, 9, 2.2, 0x2a2016);
-    drawTapered(this.rod, butt, ctrl, tip, 3, 0.8, 0x6b5537, 0.6);
-    // Reel.
+    const alpha = active ? 1 : 0.85;
+    drawTapered(g.blank, butt, ctrl, tip, 9, 2.2, 0x2a2016, alpha);
+    drawTapered(g.blank, butt, ctrl, tip, 3, 0.8, 0x6b5537, 0.6 * alpha);
+    if (!isFloat) {
+      // Painted quivertip: the last stretch of the blank.
+      const qt = bezier(butt, ctrl, tip, 0.86);
+      g.blank
+        .moveTo(qt.x, qt.y)
+        .lineTo(tip.x, tip.y)
+        .stroke({ color: 0xf0e04a, width: 2.2, alpha, cap: "round" });
+    }
     const reel = lerp2(butt, ctrl, 0.25);
-    this.rod
+    g.blank
       .circle(reel.x + 8, reel.y + 4, 11)
-      .fill({ color: 0x1c1c1c })
-      .stroke({ color: 0x555555, width: 2 });
+      .fill({ color: 0x1c1c1c, alpha })
+      .stroke({ color: active ? 0xe8b84a : 0x555555, width: 2, alpha });
 
     if (!target) return;
 
@@ -280,36 +312,20 @@ export class Scene {
     const fp = { x: target.x, y: target.y - lift };
     const sag = (1 - Math.min(1, tension)) * height * 0.05;
     const mid = lerp2(tip, fp, 0.5);
-    this.line
+    g.line
       .moveTo(tip.x, tip.y)
       .quadraticCurveTo(mid.x, mid.y + sag, fp.x, fp.y - (inAir ? 0 : 2))
       .stroke({ color: 0xf2f2ea, width: 1, alpha: 0.55 });
 
-    // Float.
-    this.float.visible = true;
-    this.float.position.set(fp.x, fp.y);
-    this.float.scale.set(scale);
-    this.floatBody.y = sink / scale;
-    this.floatBody.rotation = tilt;
-    this.floatMask.visible = !inAir;
-    this.floatBody.mask = inAir ? null : this.floatMask;
-  }
-
-  private drawFloat(): void {
-    const g = this.floatBody;
-    g.clear();
-    // Antenna.
-    g.roundRect(-2.2, -FLOAT_H, 4.4, FLOAT_H * 0.45, 2).fill(0xe2402a);
-    g.rect(-2.2, -FLOAT_H * 0.62, 4.4, 6).fill(0x1a1a1a);
-    // Body: red top, white middle.
-    g.ellipse(0, -10, 8, 16).fill(0xf3efe4);
-    g.ellipse(0, -18, 7, 9).fill(0xe2402a);
-    // Keel (below water, hidden by the mask unless lying/flying).
-    g.rect(-1.5, 4, 3, 20).fill(0x8a7a5a);
-    // Highlight.
-    g.ellipse(-3, -14, 2, 6).fill({ color: 0xffffff, alpha: 0.5 });
-    // Mask: everything above the waterline.
-    this.floatMask.clear().rect(-60, -200, 120, 200).fill(0xffffff);
+    // Float (feeders only show the rig while it flies).
+    if (!isFloat && !inAir && st.state !== "Fighting") return;
+    g.float.visible = true;
+    g.float.position.set(fp.x, fp.y);
+    g.float.scale.set(isFloat ? scale : scale * 0.6);
+    g.floatBody.y = sink / scale;
+    g.floatBody.rotation = tilt;
+    g.floatBody.mask = inAir ? null : g.floatMask;
+    g.floatMask.visible = !inAir;
   }
 
   private addRipple(p: Vec, scale: number, strength: number): void {
@@ -331,6 +347,22 @@ export class Scene {
       }
     }
   }
+}
+
+function drawFloat(g: Graphics, mask: Graphics): void {
+  g.clear();
+  // Antenna.
+  g.roundRect(-2.2, -FLOAT_H, 4.4, FLOAT_H * 0.45, 2).fill(0xe2402a);
+  g.rect(-2.2, -FLOAT_H * 0.62, 4.4, 6).fill(0x1a1a1a);
+  // Body: red top, white middle.
+  g.ellipse(0, -10, 8, 16).fill(0xf3efe4);
+  g.ellipse(0, -18, 7, 9).fill(0xe2402a);
+  // Keel (below water, hidden by the mask unless lying/flying).
+  g.rect(-1.5, 4, 3, 20).fill(0x8a7a5a);
+  // Highlight.
+  g.ellipse(-3, -14, 2, 6).fill({ color: 0xffffff, alpha: 0.5 });
+  // Mask: everything above the waterline.
+  mask.clear().rect(-60, -200, 120, 200).fill(0xffffff);
 }
 
 function norm(v: Vec): Vec {

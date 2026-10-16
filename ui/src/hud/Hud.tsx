@@ -4,7 +4,7 @@ import { CatchCard } from "./CatchCard";
 import { DebugOverlay } from "./DebugOverlay";
 import { FightBar } from "./FightBar";
 import { Keepnet } from "./Keepnet";
-import { RodPanel } from "./RodPanel";
+import { RodBar } from "./RodBar";
 
 export function Hud() {
   const session = useGame((s) => s.snapshot?.session ?? null);
@@ -38,7 +38,7 @@ export function Hud() {
       </div>
 
       {rod?.state.state === "Fighting" && <FightBar rod={rod} state={rod.state} />}
-      {rod && <RodPanel index={session.activeRod} rod={rod} />}
+      <RodBar session={session} />
       {rod?.state.state === "Landed" && (
         <CatchCard index={session.activeRod} catch_={rod.state.catch} />
       )}

@@ -51,6 +51,19 @@ impl Tackle {
         }
     }
 
+    pub fn starter_feeder() -> Self {
+        Self {
+            kind: RodKind::Feeder,
+            max_cast_m: 45.0,
+            line_strength_kg: 4.0,
+            line_length_m: 150.0,
+            reel_speed_mps: 1.2,
+            drag_kg: 2.4,
+            float_depth_m: 0.0,
+            bait: "maggot".into(),
+        }
+    }
+
     pub fn fight(&self) -> FightTackle {
         FightTackle {
             line_strength_kg: self.line_strength_kg,

@@ -171,6 +171,27 @@ kbd {
   position: absolute;
   left: 12px;
   bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.rod-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 12px;
+  min-width: 150px;
+  text-align: left;
+}
+
+.rod-chip .rod-slot {
+  margin-bottom: 2px;
+}
+
+.rod-chip .rod-state {
+  font-size: 12px;
 }
 
 .rod-card {
@@ -179,6 +200,7 @@ kbd {
 }
 
 .rod-alert {
+  animation: alert-pulse 0.7s ease-in-out infinite alternate;
   border-color: var(--accent);
   box-shadow:
     0 0 0 1px var(--accent),
@@ -453,4 +475,13 @@ kbd {
   border-radius: 6px;
   pointer-events: auto;
   user-select: text;
+}
+
+@keyframes alert-pulse {
+  from {
+    border-color: rgba(232, 184, 74, 0.4);
+  }
+  to {
+    border-color: var(--accent);
+  }
 }

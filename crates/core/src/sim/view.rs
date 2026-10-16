@@ -33,6 +33,7 @@ pub struct SessionView {
     pub active_rod: usize,
     pub rods: Vec<RodView>,
     pub keepnet: Vec<Catch>,
+    pub groundbait: Vec<super::groundbait::Patch>,
     pub debug: Option<DebugView>,
 }
 
@@ -135,6 +136,7 @@ impl World {
             active_rod: s.active,
             rods: s.rods.iter().map(|r| self.rod_view(s, r)).collect(),
             keepnet: s.keepnet.clone(),
+            groundbait: s.groundbait.clone(),
             debug: self.debug.then(|| DebugView {
                 bite_rates: s.rods.iter().map(|r| self.debug_rates(s, r)).collect(),
             }),
@@ -199,7 +201,8 @@ impl World {
     }
 
     fn debug_rates(&self, s: &Session, r: &Rod) -> Vec<(String, f64)> {
-        let (RodState::Waiting { cell, .. } | RodState::Bite { cell, .. }) = &r.state else {
+        let (RodState::Waiting { at, cell, .. } | RodState::Bite { at, cell, .. }) = &r.state
+        else {
             return Vec::new();
         };
         let Some(zone) = s.spot.zone(cell.zone) else {
@@ -211,7 +214,7 @@ impl World {
             bait_depth_m,
             bait: &r.tackle.bait,
             hour: s.clock.hour(),
-            bonus: 1.0,
+            bonus: super::groundbait::bonus(&s.groundbait, &s.spot.view, *at),
         };
         bite::rates(&self.content, zone, &p)
             .into_iter()

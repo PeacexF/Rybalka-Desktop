@@ -2,6 +2,7 @@
 import type { Catch } from "./Catch";
 import type { ClockView } from "./ClockView";
 import type { DebugView } from "./DebugView";
+import type { Patch } from "./Patch";
 import type { RodView } from "./RodView";
 import type { View } from "./View";
 
@@ -16,5 +17,6 @@ export type SessionView = {
   activeRod: number;
   rods: Array<RodView>;
   keepnet: Array<Catch>;
+  groundbait: Array<Patch>;
   debug: DebugView | null;
 };

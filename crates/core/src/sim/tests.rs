@@ -217,3 +217,31 @@ impl World {
         &mut self.session.as_mut().unwrap().rods
     }
 }
+
+#[test]
+fn feeder_cast_lays_groundbait() {
+    let mut w = World::new(content(), 99);
+    w.start_session(
+        "pond",
+        "dam",
+        map(),
+        vec![Tackle::starter_float(), Tackle::starter_feeder()],
+    )
+    .unwrap();
+    w.input(Input::Cast {
+        rod: 1,
+        x: 0.5,
+        y: 0.6,
+    })
+    .unwrap();
+    assert!(
+        run_until(&mut w, 400, |e| matches!(
+            e,
+            GameEvent::CastLanded { rod: 1 }
+        ))
+        .is_some()
+    );
+    let s = w.session().unwrap();
+    assert_eq!(s.groundbait.len(), 1);
+    assert_eq!(s.active, 1, "casting selects the rod");
+}
