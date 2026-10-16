@@ -22,6 +22,16 @@ npm run tauri dev      # dev-сборка с hot reload фронта
 npm run tauri build    # релизный бандл
 ```
 
+## Релиз
+
+Тег `v*` (например, `git tag v1.0.0 && git push origin v1.0.0`) запускает
+`.github/workflows/release.yml`: бандлы macOS (dmg, arm64 и x64), Windows (msi) и Linux (AppImage)
+прикрепляются к черновику релиза на GitHub. Ручной запуск workflow только собирает бандлы
+и сохраняет их как артефакты.
+
+Сборки не подписаны. На macOS первый запуск: правый клик по приложению → «Открыть»;
+на Windows: «Подробнее» → «Выполнить в любом случае».
+
 ## Проверки
 
 ```sh
