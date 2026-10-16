@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 /// Default speed: 1 real minute = 10 game minutes.
 pub const DEFAULT_SPEED: f64 = 10.0;
+/// Range offered in the settings.
+pub const MIN_SPEED: f64 = 2.0;
+pub const MAX_SPEED: f64 = 60.0;
 /// Multiplier applied while the player holds "fast forward".
 pub const FAST_FORWARD: f64 = 4.0;
 

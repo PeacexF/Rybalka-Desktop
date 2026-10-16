@@ -12,7 +12,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::clock::Clock;
+use crate::clock::{self, Clock};
 use crate::content::{BaitKind, Content, SpotDef, TackleKind, View, ZoneDef};
 use crate::journal::{CatchLog, JournalEntry};
 use crate::map::WaterMap;
@@ -225,6 +225,8 @@ pub struct World {
     journal: Vec<JournalEntry>,
     events: Vec<GameEvent>,
     pub debug: bool,
+    /// Game minutes per real minute (a player setting).
+    time_speed: f64,
 }
 
 impl World {
@@ -240,6 +242,15 @@ impl World {
             journal: Vec::new(),
             events: Vec::new(),
             debug: false,
+            time_speed: clock::DEFAULT_SPEED,
+        }
+    }
+
+    /// Change how fast game time runs, for this and future sessions.
+    pub fn set_time_speed(&mut self, speed: f64) {
+        self.time_speed = speed.clamp(clock::MIN_SPEED, clock::MAX_SPEED);
+        if let Some(s) = &mut self.session {
+            s.clock.speed = self.time_speed;
         }
     }
 
@@ -260,7 +271,11 @@ impl World {
         rods: Vec<Tackle>,
     ) -> Result<(), SimError> {
         let slots = (0..rods.len()).collect();
-        self.open_session(location_id, spot_id, map, rods, slots, Clock::default())
+        let clock = Clock {
+            speed: self.time_speed,
+            ..Clock::default()
+        };
+        self.open_session(location_id, spot_id, map, rods, slots, clock)
     }
 
     fn open_session(
@@ -337,6 +352,7 @@ impl World {
         }
         let clock = Clock {
             minutes: p.clock_min,
+            speed: self.time_speed,
             ..Clock::default()
         };
         let (keepnet, next_id) = (p.keepnet.clone(), p.next_catch_id);

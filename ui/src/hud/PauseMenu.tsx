@@ -1,6 +1,7 @@
 import { sendInput } from "../ipc/game";
 import { formatWeight, plural } from "../format";
 import { useGame } from "../store/game";
+import { useSettings } from "../store/settings";
 
 export function PauseMenu({ onLeave }: { onLeave: () => void }) {
   const session = useGame((s) => s.snapshot?.session ?? null);
@@ -20,6 +21,7 @@ export function PauseMenu({ onLeave }: { onLeave: () => void }) {
           <button className="primary" onClick={() => sendInput({ type: "Pause", on: false })}>
             Продолжить <kbd>Esc</kbd>
           </button>
+          <button onClick={() => useSettings.getState().setOpen(true)}>Настройки</button>
           <button onClick={onLeave}>Уйти на базу</button>
         </div>
       </div>

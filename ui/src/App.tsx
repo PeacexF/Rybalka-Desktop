@@ -3,8 +3,10 @@ import { baits, catalog, locations, subscribe } from "./ipc/game";
 import { Toasts } from "./hud/Toasts";
 import { Hub } from "./screens/Hub";
 import { MainMenu } from "./screens/MainMenu";
+import { Settings } from "./screens/Settings";
 import { Water } from "./screens/Water";
 import { useGame } from "./store/game";
+import { initSettings, useSettings } from "./store/settings";
 
 /**
  * Screen router. The screen follows the game state streamed from Rust:
@@ -16,6 +18,17 @@ export function App() {
   const screen = useGame((s) =>
     !s.snapshot ? "loading" : s.snapshot.session ? "water" : s.snapshot.profile ? "hub" : "menu",
   );
+
+  useEffect(() => {
+    initSettings();
+    const key = (e: KeyboardEvent) => {
+      if (e.code !== "F11") return;
+      useSettings.getState().toggleFullscreen();
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
 
   useEffect(() => {
     subscribe((s) => useGame.getState().setSnapshot(s))
@@ -32,6 +45,7 @@ export function App() {
       {screen === "hub" && <Hub />}
       {screen === "menu" && <MainMenu />}
       <div className="overlay">
+        <Settings />
         <Toasts />
         {error && <div className="fatal">{error}</div>}
       </div>

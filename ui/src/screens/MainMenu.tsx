@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { MenuState } from "../ipc/bindings/MenuState";
 import { continueGame, exitApp, menuState, newGame } from "../ipc/game";
 import { toastError } from "../store/game";
+import { useSettings } from "../store/settings";
 
 export function MainMenu() {
   const [state, setState] = useState<MenuState | null>(null);
@@ -43,6 +44,7 @@ export function MainMenu() {
             <button className={state?.hasSave ? "" : "primary"} onClick={start}>
               Новая игра
             </button>
+            <button onClick={() => useSettings.getState().setOpen(true)}>Настройки</button>
             <button onClick={() => exitApp().catch(toastError)}>Выход</button>
           </div>
         )}

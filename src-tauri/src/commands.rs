@@ -275,6 +275,12 @@ pub fn set_debug(game: State<'_, GameHandle>, on: bool) -> Result<(), String> {
     game.with_world(move |w| w.debug = on)
 }
 
+/// Game minutes per real minute (settings).
+#[tauri::command]
+pub fn set_time_speed(game: State<'_, GameHandle>, speed: f64) -> Result<(), String> {
+    game.with_world(move |w| w.set_time_speed(speed))
+}
+
 #[tauri::command]
 pub fn baits(game: State<'_, GameHandle>) -> Result<Vec<BaitInfo>, String> {
     game.with_world(|w| w.baits())

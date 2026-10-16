@@ -1083,3 +1083,79 @@ button.link {
   flex-direction: column;
   gap: 4px;
 }
+
+/* Settings */
+.hub-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings {
+  width: 520px;
+  max-width: 520px;
+  text-align: left;
+}
+
+.settings .chips {
+  justify-content: center;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-body h3 {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setting > span {
+  flex: 1;
+}
+
+.setting input[type="range"] {
+  width: 160px;
+  accent-color: var(--accent);
+}
+
+.setting input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.setting b {
+  width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.controls td {
+  padding: 5px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.controls td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}

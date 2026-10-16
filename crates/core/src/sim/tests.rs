@@ -618,3 +618,22 @@ fn landed_fish_is_logged_and_sets_records() {
     let journal = w.take_journal();
     assert!(matches!(&journal[..], [JournalEntry::Trip(t)] if t.fish == 2));
 }
+
+#[test]
+fn time_speed_applies_to_running_and_new_sessions() {
+    let mut w = world();
+    let before = w.session().unwrap().clock.minutes;
+    w.set_time_speed(30.0);
+    // One real second at 30 game minutes per real minute.
+    for _ in 0..20 {
+        w.step();
+    }
+    let passed = w.session().unwrap().clock.minutes - before;
+    assert!((passed - 0.5).abs() < 1e-6, "{passed}");
+
+    w.start_session("pond", "dam", map(), vec![Tackle::starter_float()])
+        .unwrap();
+    assert_eq!(w.session().unwrap().clock.speed, 30.0);
+    w.set_time_speed(1e6);
+    assert_eq!(w.session().unwrap().clock.speed, clock::MAX_SPEED);
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { closeGame } from "../ipc/game";
 import { formatClock, formatMoney } from "../format";
 import { toastError, useGame } from "../store/game";
+import { useSettings } from "../store/settings";
 import { Base } from "./hub/Base";
 import { Diary } from "./hub/Diary";
 import { SaleCard } from "./hub/SaleCard";
@@ -62,7 +63,10 @@ export function Hub() {
               <div style={{ width: `${Math.min(1, Math.max(0, progress)) * 100}%` }} />
             </div>
           </div>
-          <button onClick={() => closeGame().catch(toastError)}>Главное меню</button>
+          <div className="hub-actions">
+            <button onClick={() => useSettings.getState().setOpen(true)}>Настройки</button>
+            <button onClick={() => closeGame().catch(toastError)}>Главное меню</button>
+          </div>
         </header>
         <nav className="hub-tabs">
           {tabs.map(([id, name]) => (

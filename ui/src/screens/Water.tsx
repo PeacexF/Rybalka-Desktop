@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameEvent } from "../ipc/bindings/GameEvent";
 import { leaveWater, sendInput, setDebug } from "../ipc/game";
-import { setRain, sfx } from "../audio";
+import { setAmbience, sfx } from "../audio";
 import { Hud, WEATHER_NAME } from "../hud/Hud";
 import { MapEditor } from "../hud/MapEditor";
 import { PauseMenu } from "../hud/PauseMenu";
@@ -109,25 +109,23 @@ export function Water() {
         useGame.getState().toast("Путёвка закончилась — пора домой", "bad");
       if (e.type === "WeatherChanged") {
         useGame.getState().toast(`Погода меняется: ${WEATHER_NAME[e.weather].toLowerCase()}`);
-        setRain(e.weather === "Rain" ? 1 : 0);
       }
     });
     const unsub = useGame.subscribe((st, prev) => {
       if (st.snapshot === prev.snapshot) return;
       const s = st.snapshot?.session ?? null;
       sceneRef.current?.update(s, performance.now());
+      setAmbience(s && { hour: s.clock.hour, weather: s.weather });
       const url = s ? `/${s.map}` : "";
       if (url && url !== mapUrl) {
         mapUrl = url;
         WaterMap.load(url).then((m) => (mapRef.current = m));
       }
     });
-    const s = useGame.getState().snapshot?.session;
-    setRain(s?.weather === "Rain" ? 1 : 0);
     return () => {
       off();
       unsub();
-      setRain(0);
+      setAmbience(null);
     };
   }, []);
 
