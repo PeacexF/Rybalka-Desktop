@@ -35,7 +35,6 @@ jobs:
       - run: cargo test --workspace
       - name: TS bindings are up to date
         run: |
-          npx --yes prettier@3 --write ui/src/ipc/bindings
           git diff --exit-code -- ui/src/ipc/bindings
           test -z "$(git status --porcelain -- ui/src/ipc/bindings)"
 

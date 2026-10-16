@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "bindings": "cargo test -p rybalka-core --quiet && prettier --write ui/src/ipc/bindings"
+    "bindings": "cargo test -p rybalka-core --quiet"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

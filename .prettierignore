@@ -4,3 +4,4 @@ src-tauri/gen
 notes
 package-lock.json
 *.md
+ui/src/ipc/bindings
