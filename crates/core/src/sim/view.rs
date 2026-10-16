@@ -516,3 +516,19 @@ pub struct MenuState {
     /// Why saves don't work, if they don't.
     pub save_error: Option<String>,
 }
+
+impl World {
+    /// Every species with its personal best (catalogue order).
+    pub fn species_records(&self) -> Vec<crate::journal::SpeciesRecord> {
+        self.content
+            .fish
+            .iter()
+            .map(|f| crate::journal::SpeciesRecord {
+                fish_id: f.id.clone(),
+                name: f.name.clone(),
+                trophy_kg: f.trophy_kg,
+                record: self.profile().and_then(|p| p.records.get(&f.id).cloned()),
+            })
+            .collect()
+    }
+}

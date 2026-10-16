@@ -11,6 +11,7 @@ use ts_rs::TS;
 
 use crate::clock::Clock;
 use crate::content::{BaitKind, Content, Item, ItemCategory, TackleKind};
+use crate::journal::{CatchLog, Record, TripLog, TripStats};
 use crate::sim::Catch;
 use crate::sim::rod::{RodKind, Tackle};
 
@@ -60,6 +61,8 @@ pub struct Profile {
     pub at: Option<Place>,
     /// Current fishing trip; `None` means the player is in town.
     pub trip: Option<Trip>,
+    /// Personal bests by fish id.
+    pub records: BTreeMap<String, Record>,
 }
 
 /// A paid stay at a water.
@@ -69,6 +72,8 @@ pub struct Trip {
     pub location: String,
     /// Game minute when the pass runs out.
     pub ends_min: f64,
+    #[serde(default)]
+    pub stats: TripStats,
 }
 
 impl Default for Profile {
@@ -83,6 +88,7 @@ impl Default for Profile {
             next_catch_id: 1,
             at: None,
             trip: None,
+            records: BTreeMap::new(),
         }
     }
 }
@@ -472,6 +478,10 @@ impl Profile {
         self.trip = Some(Trip {
             location: location.into(),
             ends_min: first_day + f64::from(days - 1) * DAY_MIN + PASS_ENDS_H * 60.0,
+            stats: TripStats {
+                started_min: self.clock_min,
+                ..TripStats::default()
+            },
         });
         Ok(())
     }
@@ -503,11 +513,54 @@ impl Profile {
         Ok(())
     }
 
-    /// Back to town: whatever is in the keepnet gets sold.
-    pub fn end_trip(&mut self, c: &Content) -> SaleReport {
-        self.trip = None;
+    /// Back to town: whatever is in the keepnet gets sold, and the trip goes
+    /// into the diary.
+    pub fn end_trip(&mut self, c: &Content) -> (SaleReport, Option<TripLog>) {
+        let report = self.sell_keepnet(c);
         self.at = None;
-        self.sell_keepnet(c)
+        let log = self.trip.take().map(|t| TripLog {
+            location: c
+                .location(&t.location)
+                .map_or_else(|| t.location.clone(), |l| l.name.clone()),
+            started_min: t.stats.started_min,
+            ended_min: self.clock_min,
+            fish: t.stats.fish,
+            kg: t.stats.kg,
+            earned: t.stats.earned,
+            best_kg: t.stats.best.as_ref().map_or(0.0, |b| b.1),
+            best_name: t.stats.best.map(|b| b.0),
+            weathers: t.stats.weathers,
+        });
+        (report, log)
+    }
+
+    /// A fish was landed: update the personal best and the trip totals.
+    /// Sets `log.record` when it beats the previous best.
+    pub fn note_catch(&mut self, log: &mut CatchLog) {
+        if let Some(t) = &mut self.trip {
+            t.stats.add_catch(&log.fish_name, log.weight_kg);
+        }
+        let rec = self.records.entry(log.fish_id.clone()).or_insert(Record {
+            weight_kg: 0.0,
+            at_min: log.at_min,
+            location: String::new(),
+            spot: String::new(),
+            rod: log.rod,
+            bait: String::new(),
+            count: 0,
+            trophies: 0,
+        });
+        rec.count += 1;
+        rec.trophies += u32::from(log.trophy);
+        log.record = log.weight_kg > rec.weight_kg;
+        if log.record {
+            rec.weight_kg = log.weight_kg;
+            rec.at_min = log.at_min;
+            rec.location.clone_from(&log.location);
+            rec.spot.clone_from(&log.spot);
+            rec.rod = log.rod;
+            rec.bait.clone_from(&log.bait);
+        }
     }
 
     /// Sell everything in the keepnet: money and experience.
@@ -539,6 +592,9 @@ impl Profile {
         }
         self.money += money;
         self.xp += xp.round();
+        if let Some(t) = &mut self.trip {
+            t.stats.earned += money;
+        }
         SaleReport {
             lines,
             money,
@@ -743,6 +799,7 @@ mod tests {
             trophy,
             bait: "worm".into(),
             at_min: 0.0,
+            record: false,
         };
         p.keepnet = vec![catch(1, 0.5, false), catch(2, 1.0, true)];
         let money = p.money;
@@ -783,8 +840,9 @@ mod tests {
         assert!(!p.trip_over());
         p.clock_min = t.ends_min;
         assert!(p.trip_over());
-        p.end_trip(&c);
+        let (_, log) = p.end_trip(&c);
         assert!(p.trip.is_none());
+        assert_eq!(log.unwrap().location, "Пруд у деревни");
     }
 
     #[test]
@@ -797,6 +855,39 @@ mod tests {
         let worm = c.item("worm").unwrap();
         assert!((money - p.money - (worm.price() * LOCAL_MARKUP).round()).abs() < 1e-9);
         assert_eq!(p.buy(&c, "reel_1000", 1), Err(ProfileError::NotInLocalShop));
+    }
+
+    #[test]
+    fn records_keep_the_heaviest_fish() {
+        let c = content();
+        let mut p = Profile::starter(&c);
+        p.buy_trip(&c, "pond", 1).unwrap();
+        let mut log = |kg: f64, trophy| {
+            let mut l = CatchLog {
+                fish_id: "roach".into(),
+                fish_name: "Плотва".into(),
+                weight_kg: kg,
+                trophy,
+                record: false,
+                bait: "Червь".into(),
+                rod: RodKind::Float,
+                location: "Пруд".into(),
+                spot: "Под берёзой".into(),
+                at_min: kg,
+                weather: crate::weather::Weather::Clear,
+            };
+            p.note_catch(&mut l);
+            l.record
+        };
+        assert!(log(0.2, false), "first fish is a record");
+        assert!(!log(0.1, false));
+        assert!(log(0.7, true));
+        let r = &p.records["roach"];
+        assert_eq!((r.count, r.trophies), (3, 1));
+        assert!((r.weight_kg - 0.7).abs() < 1e-9);
+        let t = &p.trip.as_ref().unwrap().stats;
+        assert_eq!(t.fish, 3);
+        assert_eq!(t.best.as_ref().unwrap().0, "Плотва");
     }
 
     #[test]

@@ -5,6 +5,7 @@
 
 pub mod clock;
 pub mod content;
+pub mod journal;
 pub mod map;
 pub mod profile;
 pub mod rng;

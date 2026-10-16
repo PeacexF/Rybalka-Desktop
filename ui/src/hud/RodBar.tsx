@@ -4,7 +4,7 @@ import type { SessionView } from "../ipc/bindings/SessionView";
 import { sendInput } from "../ipc/game";
 import { useGame } from "../store/game";
 
-const KIND_NAME = { Float: "Поплавочная", Feeder: "Фидер", Spinning: "Спиннинг" } as const;
+export const KIND_NAME = { Float: "Поплавочная", Feeder: "Фидер", Spinning: "Спиннинг" } as const;
 
 /** Terminal tackle a cast uses, per rod kind (mirrors `profile::rig_parts`). */
 const RIG: Record<RodView["kind"], [TackleKind, string][]> = {

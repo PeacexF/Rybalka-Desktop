@@ -7,4 +7,8 @@ export type Catch = { id: number, fishId: string, name: string, weightKg: number
 /**
  * Game minutes when landed.
  */
-atMin: number, };
+atMin: number, 
+/**
+ * A new personal best for the species.
+ */
+record: boolean, };

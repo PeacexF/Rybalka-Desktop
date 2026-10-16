@@ -76,12 +76,14 @@ impl GameHandle {
 const GONE: &str = "game thread is gone";
 
 fn save(world: &mut World, store: &SharedStore) {
-    let Some(profile) = world.take_save() else {
+    let profile = world.take_save();
+    let journal = world.take_journal();
+    if profile.is_none() && journal.is_empty() {
         return;
-    };
-    let guard = store.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(store) = guard.as_ref()
-        && let Err(e) = store.save(&profile)
+    }
+    let mut guard = store.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(store) = guard.as_mut()
+        && let Err(e) = store.write(profile.as_ref(), &journal)
     {
         eprintln!("autosave failed: {e}");
     }

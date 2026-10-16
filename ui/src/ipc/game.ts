@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { BaitInfo } from "./bindings/BaitInfo";
+import type { Diary } from "./bindings/Diary";
 import type { Input } from "./bindings/Input";
 import type { LocationInfo } from "./bindings/LocationInfo";
 import type { MenuState } from "./bindings/MenuState";
@@ -89,4 +90,8 @@ export function sellCatch(): Promise<SaleReport> {
 /** Back to town; whatever is in the keepnet is sold. */
 export function endTrip(): Promise<SaleReport> {
   return invoke("end_trip");
+}
+
+export function diary(): Promise<Diary> {
+  return invoke("diary");
 }

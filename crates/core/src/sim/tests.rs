@@ -492,6 +492,7 @@ fn leaving_water_keeps_catch_and_settings() {
         trophy: false,
         bait: "worm".into(),
         at_min: 0.0,
+        record: false,
     };
     w.rods_mut()[0].state = RodState::Landed { catch };
     for _ in 0..200 {
@@ -568,4 +569,52 @@ fn pause_stops_the_clock() {
     w.input(Input::Pause { on: false }).unwrap();
     w.step();
     assert!(w.session().unwrap().clock.minutes > before);
+}
+
+#[test]
+fn landed_fish_is_logged_and_sets_records() {
+    let mut w = economy_world();
+    w.go_fishing("pond", "willow", map()).unwrap();
+    let land = |w: &mut World, kg: f64| {
+        let catch = Catch {
+            id: 9,
+            fish_id: "perch".into(),
+            name: "Окунь".into(),
+            weight_kg: kg,
+            trophy: false,
+            bait: "worm".into(),
+            at_min: 400.0,
+            record: false,
+        };
+        w.rods_mut()[0].state = RodState::Landed {
+            catch: catch.clone(),
+        };
+        let from = w.events.len();
+        w.events.push(GameEvent::Landed { rod: 0, catch });
+        w.settle(from);
+        w.drain_events()
+    };
+    let ev = land(&mut w, 0.3);
+    assert!(
+        ev.iter()
+            .any(|e| matches!(e, GameEvent::NewRecord { first: true, .. }))
+    );
+    assert!(
+        matches!(&w.session().unwrap().rods[0].state, RodState::Landed { catch } if catch.record)
+    );
+    let ev = land(&mut w, 0.2);
+    assert!(!ev.iter().any(|e| matches!(e, GameEvent::NewRecord { .. })));
+
+    let journal = w.take_journal();
+    assert_eq!(journal.len(), 2);
+    let JournalEntry::Catch(log) = &journal[0] else {
+        panic!("expected a catch log");
+    };
+    assert_eq!(log.bait, "Червь");
+    assert_eq!(log.location, "Пруд у деревни");
+    assert_eq!(w.profile().unwrap().records["perch"].count, 2);
+
+    w.end_trip().unwrap();
+    let journal = w.take_journal();
+    assert!(matches!(&journal[..], [JournalEntry::Trip(t)] if t.fish == 2));
 }

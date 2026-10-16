@@ -7,6 +7,7 @@ import { MapEditor } from "../hud/MapEditor";
 import { PauseMenu } from "../hud/PauseMenu";
 import { Scene } from "../scene/Scene";
 import { WaterMap } from "../scene/WaterMap";
+import { formatWeight } from "../format";
 import { onGameEvent, toastError, useGame } from "../store/game";
 
 const EVENT_TOASTS: Partial<Record<GameEvent["type"], [string, "info" | "bad" | "good"]>> = {
@@ -95,6 +96,15 @@ export function Water() {
       const t = EVENT_TOASTS[e.type];
       if (t) useGame.getState().toast(t[0], t[1]);
       if (e.type === "OutOf") useGame.getState().toast(`Закончилось: ${e.item}`, "bad");
+      if (e.type === "NewRecord")
+        useGame
+          .getState()
+          .toast(
+            e.first
+              ? `Новый вид в дневнике: ${e.name}`
+              : `Новый рекорд: ${e.name}, ${formatWeight(e.weightKg)}!`,
+            "good",
+          );
       if (e.type === "TripOver")
         useGame.getState().toast("Путёвка закончилась — пора домой", "bad");
       if (e.type === "WeatherChanged") {

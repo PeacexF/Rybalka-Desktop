@@ -70,6 +70,7 @@ pub fn run() {
             commands::sleep,
             commands::sell_catch,
             commands::end_trip,
+            commands::diary,
             commands::dev_save_map,
             commands::dev_set_view,
             commands::input,

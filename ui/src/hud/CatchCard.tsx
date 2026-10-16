@@ -19,6 +19,7 @@ export function CatchCard({ index, catch_ }: { index: number; catch_: Catch }) {
   return (
     <div className="modal-backdrop">
       <div className="panel catch-card">
+        {catch_.record && <div className="trophy">Личный рекорд!</div>}
         {catch_.trophy && <div className="trophy">Трофей!</div>}
         <div className="catch-name">{catch_.name}</div>
         <div className="catch-weight">{formatWeight(catch_.weightKg)}</div>

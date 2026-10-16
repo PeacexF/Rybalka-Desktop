@@ -1,4 +1,5 @@
 use rybalka_core::content::View;
+use rybalka_core::journal::Diary;
 use rybalka_core::map::WaterMap;
 use rybalka_core::profile::{Part, Profile, SaleReport};
 use rybalka_core::sim::{BaitInfo, LocationInfo, MenuState, ShopItem};
@@ -32,9 +33,12 @@ pub fn menu_state(store: State<'_, SharedStore>, error: State<'_, SaveStatus>) -
 /// Why the save store could not be opened, if it couldn't.
 pub struct SaveStatus(pub Option<String>);
 
-/// Start over with the starter kit (overwrites the save).
+/// Start over with the starter kit (overwrites the save and the diary).
 #[tauri::command]
-pub fn new_game(game: State<'_, GameHandle>) -> Result<(), String> {
+pub fn new_game(game: State<'_, GameHandle>, store: State<'_, SharedStore>) -> Result<(), String> {
+    if let Some(s) = store.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        s.clear_journal().map_err(|e| e.to_string())?;
+    }
     game.with_world(|w| {
         let p = Profile::starter(w.content());
         w.set_profile(Some(p));
@@ -148,6 +152,23 @@ pub fn go_fishing(
         dev_start_override(w);
         Ok(())
     })?
+}
+
+/// Records, trips and recent catches for the diary screen.
+#[tauri::command]
+pub fn diary(game: State<'_, GameHandle>, store: State<'_, SharedStore>) -> Result<Diary, String> {
+    // Pending entries go to the database first so the diary is complete.
+    game.flush();
+    let records = game.with_world(|w| w.species_records())?;
+    let (trips, catches) = match store.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        Some(s) => s.diary(200).map_err(|e| e.to_string())?,
+        None => Default::default(),
+    };
+    Ok(Diary {
+        records,
+        trips,
+        catches,
+    })
 }
 
 /// Leave the water for the base (the catch stays in the keepnet).

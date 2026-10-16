@@ -14,6 +14,7 @@ use ts_rs::TS;
 
 use crate::clock::Clock;
 use crate::content::{BaitKind, Content, SpotDef, TackleKind, View, ZoneDef};
+use crate::journal::{CatchLog, JournalEntry};
 use crate::map::WaterMap;
 use crate::profile::{Place, Profile, SaleReport};
 use crate::rng::Rng;
@@ -46,6 +47,9 @@ pub struct Catch {
     pub bait: String,
     /// Game minutes when landed.
     pub at_min: f64,
+    /// A new personal best for the species.
+    #[serde(default)]
+    pub record: bool,
 }
 
 /// Player commands. Rod indexes refer to [`SessionView::rods`].
@@ -153,6 +157,12 @@ pub enum GameEvent {
     },
     /// The pass ran out; the session ended.
     TripOver,
+    /// A landed fish beat the personal best for its species.
+    NewRecord {
+        name: String,
+        weight_kg: f64,
+        first: bool,
+    },
     WeatherChanged {
         weather: Weather,
     },
@@ -211,6 +221,8 @@ pub struct World {
     profile: Option<Profile>,
     /// The profile changed since the last [`World::take_save`].
     dirty: bool,
+    /// Diary entries not yet written to the database.
+    journal: Vec<JournalEntry>,
     events: Vec<GameEvent>,
     pub debug: bool,
 }
@@ -225,6 +237,7 @@ impl World {
             session: None,
             profile: None,
             dirty: false,
+            journal: Vec::new(),
             events: Vec::new(),
             debug: false,
         }
@@ -330,11 +343,15 @@ impl World {
         self.open_session(location_id, spot_id, map, rods, slots, clock)?;
         self.session.as_mut().expect("just opened").keepnet = keepnet;
         self.next_catch_id = next_id;
+        let weather = self.session.as_ref().map(|s| s.weather.current);
         if let Some(p) = &mut self.profile {
             p.at = Some(Place {
                 location: location_id.into(),
                 spot: spot_id.into(),
             });
+            if let (Some(t), Some(w)) = (&mut p.trip, weather) {
+                t.stats.saw_weather(w);
+            }
         }
         self.dirty = true;
         Ok(())
@@ -396,7 +413,14 @@ impl World {
             self.leave_water()?;
         }
         let content = self.content.clone();
-        self.update_profile(|p, _| p.end_trip(&content))
+        let (report, log) = self.update_profile(|p, _| p.end_trip(&content))?;
+        self.journal.extend(log.map(JournalEntry::Trip));
+        Ok(report)
+    }
+
+    /// Diary entries to write to the database since the last call.
+    pub fn take_journal(&mut self) -> Vec<JournalEntry> {
+        std::mem::take(&mut self.journal)
     }
 
     /// Map editor: swap the water map and/or calibration of the running session.
@@ -616,6 +640,7 @@ impl World {
         };
         let content = &*self.content;
         let mut profile = self.profile.as_mut();
+        let mut extra = Vec::new();
         for e in &self.events[from..] {
             let (rod, chance) = match e {
                 GameEvent::CastLanded { rod } => {
@@ -636,7 +661,49 @@ impl World {
                     }
                     continue;
                 }
-                GameEvent::Landed { rod, .. } | GameEvent::Escaped { rod } => (*rod, 1.0),
+                GameEvent::WeatherChanged { weather } => {
+                    if let Some(t) = profile.as_mut().and_then(|p| p.trip.as_mut()) {
+                        t.stats.saw_weather(*weather);
+                    }
+                    continue;
+                }
+                GameEvent::Landed { rod, catch } => {
+                    if let Some(p) = profile.as_mut() {
+                        let r = &mut s.rods[*rod];
+                        let first = !p.records.contains_key(&catch.fish_id);
+                        let mut log = CatchLog {
+                            fish_id: catch.fish_id.clone(),
+                            fish_name: catch.name.clone(),
+                            weight_kg: catch.weight_kg,
+                            trophy: catch.trophy,
+                            record: false,
+                            bait: content
+                                .bait(&catch.bait)
+                                .map_or_else(|| catch.bait.clone(), |b| b.name.clone()),
+                            rod: r.tackle.kind,
+                            location: content
+                                .location(&s.location_id)
+                                .map_or_else(|| s.location_id.clone(), |l| l.name.clone()),
+                            spot: s.spot.name.clone(),
+                            at_min: catch.at_min,
+                            weather: s.weather.current,
+                        };
+                        p.note_catch(&mut log);
+                        if log.record {
+                            if let RodState::Landed { catch } = &mut r.state {
+                                catch.record = true;
+                            }
+                            extra.push(GameEvent::NewRecord {
+                                name: log.fish_name.clone(),
+                                weight_kg: log.weight_kg,
+                                first,
+                            });
+                        }
+                        self.journal.push(JournalEntry::Catch(log));
+                    }
+                    (*rod, 1.0)
+                }
+                GameEvent::Escaped { rod } => (*rod, 1.0),
                 GameEvent::FishLeft { rod } => (*rod, BAIT_LOST_FISH_LEFT),
                 GameEvent::Missed { rod } => (*rod, BAIT_LOST_MISSED),
                 _ => continue,
@@ -647,6 +714,7 @@ impl World {
                 p.use_bait(content, &s.rods[rod].tackle);
             }
         }
+        self.events.extend(extra);
     }
 
     /// Take events produced since the last call.
@@ -957,6 +1025,7 @@ fn step_rod(
                     trophy: def.is_some_and(|d| fish.weight_kg >= d.trophy_kg),
                     bait: r.tackle.bait.clone(),
                     at_min: s.clock.minutes,
+                    record: false,
                 };
                 *next_catch_id += 1;
                 events.push(GameEvent::Landed {

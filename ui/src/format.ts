@@ -19,3 +19,8 @@ export function plural(n: number, one: string, few: string, many: string): strin
 export function formatMoney(rub: number): string {
   return `${Math.round(rub).toLocaleString("ru-RU")} ₽`;
 }
+
+/** "День 3, 06:40" from game minutes since day 1, 00:00. */
+export function formatGameTime(min: number): string {
+  return `День ${Math.floor(min / 1440) + 1}, ${formatClock((min / 60) % 24)}`;
+}

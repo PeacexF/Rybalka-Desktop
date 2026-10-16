@@ -3,12 +3,13 @@ import { closeGame } from "../ipc/game";
 import { formatClock, formatMoney } from "../format";
 import { toastError, useGame } from "../store/game";
 import { Base } from "./hub/Base";
+import { Diary } from "./hub/Diary";
 import { SaleCard } from "./hub/SaleCard";
 import { Shop } from "./hub/Shop";
 import { Tackle } from "./hub/Tackle";
 import { Trips } from "./hub/Trips";
 
-type Tab = "trips" | "base" | "shop" | "tackle";
+type Tab = "trips" | "base" | "shop" | "tackle" | "diary";
 
 /**
  * Between sessions. In town: passes, the full shop and tackle. On a trip:
@@ -29,11 +30,13 @@ export function Hub() {
         ["base", "База"],
         ["shop", "Лавка"],
         ["tackle", "Снасти"],
+        ["diary", "Дневник"],
       ]
     : [
         ["trips", "Путёвки"],
         ["shop", "Магазин"],
         ["tackle", "Снасти"],
+        ["diary", "Дневник"],
       ];
   const next = profile.nextRankXp;
   const progress = next ? (profile.xp - profile.rankXp) / (next - profile.rankXp) : 1;
@@ -73,6 +76,7 @@ export function Hub() {
           {tab === "base" && <Base profile={profile} onTackle={() => setTab("tackle")} />}
           {tab === "shop" && <Shop profile={profile} local={onTrip} />}
           {tab === "tackle" && <Tackle profile={profile} />}
+          {tab === "diary" && <Diary />}
         </main>
       </div>
       {sale && <SaleCard report={sale} />}
