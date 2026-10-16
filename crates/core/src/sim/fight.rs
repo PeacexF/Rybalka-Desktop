@@ -6,6 +6,10 @@ use crate::rng::Rng;
 
 /// Fraction of the overload above drag that still reaches the line (drag inertia).
 const DRAG_LAG: f64 = 0.12;
+/// Extra overload passed through when cranking against a slipping drag.
+const CRANK_LAG: f64 = 0.28;
+/// Chance that the hook shakes loose when a rush starts.
+const SHAKE_OFF: f64 = 0.03;
 /// How fast the fish strips line when the drag slips, m/s at full overload.
 const SLIP_SPEED: f64 = 1.8;
 /// Stamina drain per second per (tension / fish pull capacity).
@@ -93,6 +97,9 @@ impl Fight {
             self.rush_t = rng.range(0.8, 2.5);
             self.rush_mult = rng.range(1.3, 1.9);
             self.lateral_vel = rng.range(-1.5, 1.5);
+            if rng.chance(SHAKE_OFF) {
+                return Outcome::Escaped;
+            }
         }
 
         let pull = self.pull();
@@ -107,7 +114,13 @@ impl Fight {
         // own pull can take line back out.
         self.slipping = load > t.drag_kg;
         let target = if self.slipping {
-            t.drag_kg + (load - t.drag_kg) * DRAG_LAG
+            // Cranking while the drag gives line overloads it: ease off on rushes.
+            let lag = if self.reeling {
+                DRAG_LAG + CRANK_LAG
+            } else {
+                DRAG_LAG
+            };
+            t.drag_kg + (load - t.drag_kg) * lag
         } else {
             load
         };
@@ -178,11 +191,13 @@ mod tests {
         }
     }
 
-    /// Reel constantly; return outcome and elapsed seconds.
-    fn run(fight: &mut Fight, t: &FightTackle, seed: u64) -> (Outcome, f64) {
+    /// Play the fish; return outcome and elapsed seconds. `smart` eases off
+    /// while the drag slips or the line is near its limit.
+    fn play(fight: &mut Fight, t: &FightTackle, seed: u64, smart: bool) -> (Outcome, f64) {
         let mut rng = Rng::new(seed);
-        fight.reeling = true;
         for i in 0..20_000 {
+            fight.reeling =
+                !smart || (!fight.slipping && fight.tension_kg < 0.85 * t.line_strength_kg);
             let o = fight.step(DT, t, &mut rng);
             if o != Outcome::Continue {
                 return (o, f64::from(i) * DT);
@@ -191,14 +206,25 @@ mod tests {
         (Outcome::Continue, f64::INFINITY)
     }
 
+    fn run(fight: &mut Fight, t: &FightTackle, seed: u64) -> (Outcome, f64) {
+        play(fight, t, seed, false)
+    }
+
     #[test]
     fn small_fish_is_landed_quickly() {
-        for seed in 0..20 {
+        let mut landed = 0;
+        for seed in 0..40 {
             let mut f = Fight::new(0.2, 2.0, 15.0);
             let (o, secs) = run(&mut f, &tackle(1.8), seed);
-            assert_eq!(o, Outcome::Landed, "seed {seed}");
-            assert!(secs < 40.0, "seed {seed}: {secs}s");
+            // A few shake off at the start of a rush; that's intended.
+            if o == Outcome::Landed {
+                landed += 1;
+                assert!(secs < 40.0, "seed {seed}: {secs}s");
+            } else {
+                assert_eq!(o, Outcome::Escaped, "seed {seed}");
+            }
         }
+        assert!(landed >= 34, "{landed}/40");
     }
 
     #[test]
@@ -213,14 +239,35 @@ mod tests {
     }
 
     #[test]
-    fn big_fish_on_loose_drag_can_be_landed() {
+    fn big_fish_on_loose_drag_can_be_landed_with_care() {
         let landed = (0..20)
             .filter(|&seed| {
                 let mut f = Fight::new(2.0, 1.8, 20.0);
-                run(&mut f, &tackle(1.4), seed).0 == Outcome::Landed
+                play(&mut f, &tackle(1.4), seed, true).0 == Outcome::Landed
             })
             .count();
         assert!(landed >= 15, "only {landed}/20 landed");
+    }
+
+    #[test]
+    fn cranking_through_rushes_breaks_more_lines() {
+        // A typical carp on the starter feeder (4 kg line, 2.4 kg drag).
+        let feeder = FightTackle {
+            line_strength_kg: 4.0,
+            drag_kg: 2.4,
+            reel_speed_mps: 1.2,
+            line_length_m: 150.0,
+        };
+        let broke = |smart: bool| {
+            (0..40)
+                .filter(|&seed| {
+                    let mut f = Fight::new(2.2, 2.2, 20.0);
+                    play(&mut f, &feeder, seed, smart).0 == Outcome::Broke
+                })
+                .count()
+        };
+        let (dumb, smart) = (broke(false), broke(true));
+        assert!(dumb >= 30 && smart <= 4, "dumb {dumb}/40, smart {smart}/40");
     }
 
     #[test]

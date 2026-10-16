@@ -65,6 +65,28 @@ function tone(freq: number, dur: number, gain: number, type: OscillatorType = "s
   o.stop(t + dur);
 }
 
+let rainGain: GainNode | null = null;
+
+/** Fade a looped rain hiss in or out (`level` 0..1). */
+export function setRain(level: number): void {
+  const a = ac();
+  if (!a) return;
+  const { ctx: c, out } = a;
+  if (!rainGain) {
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(c, 2);
+    src.loop = true;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 2400;
+    rainGain = c.createGain();
+    rainGain.gain.value = 0;
+    src.connect(lp).connect(rainGain).connect(out);
+    src.start();
+  }
+  rainGain.gain.setTargetAtTime(level * 0.12, c.currentTime, 2);
+}
+
 export const sfx = {
   /** Rig hits the water. */
   plop(size = 1) {

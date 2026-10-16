@@ -34,6 +34,26 @@ npm run lint && npm run typecheck && npm run format:check
 TypeScript-типы для IPC генерируются из Rust через `ts-rs` в `ui/src/ipc/bindings`
 при `cargo test` (или `npm run bindings`). CI проверяет, что они закоммичены актуальными.
 
+## Инструменты разработчика
+
+```sh
+# Отчёт по балансу: интервалы поклёвок по снастям/наживкам/часам и исходы вываживания
+cargo run -p rybalka-devtools --release --bin balance -- pond willow
+
+# Подготовка фото водоёма (кроп 16:9, 1920×1080) и сетка координат для разметки
+cargo run -p rybalka-devtools --release --bin photo -- prepare in.jpg out.jpg --crop-top 0.15
+cargo run -p rybalka-devtools --release --bin photo -- grid out.jpg grid.jpg
+
+# Карта глубин из спеки map.ron (+ превью наложения на фото)
+cargo run -p rybalka-devtools --release --bin gen_map -- \
+  assets/locations/pond/willow/map.ron assets/locations/pond/willow/map.png \
+  --preview assets/locations/pond/willow/bg.jpg /tmp/preview.jpg
+```
+
+- `F3` в игре: оверлей с частотой поклёвок по видам и кнопки времени/погоды.
+- `RYBALKA_DEV_START="21.5,Rain"`: новая сессия стартует в этот час и с этой погодой.
+- Ошибки фронтенда пишутся в stderr процесса (`[ui:error] …`), в том числе в релизной сборке.
+
 ## Лицензия
 
 MIT, см. [LICENSE](LICENSE). Атрибуция сторонних ассетов — в `assets/CREDITS.md`.

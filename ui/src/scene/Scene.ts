@@ -1,9 +1,19 @@
-import { Application, Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
+import {
+  Application,
+  Assets,
+  ColorMatrixFilter,
+  Container,
+  Graphics,
+  Sprite,
+  Texture,
+} from "pixi.js";
 import type { GameEvent } from "../ipc/bindings/GameEvent";
 import type { Point } from "../ipc/bindings/Point";
 import type { RodView } from "../ipc/bindings/RodView";
 import type { SessionView } from "../ipc/bindings/SessionView";
 import type { View } from "../ipc/bindings/View";
+import type { Weather } from "../ipc/bindings/Weather";
+import { type Grade, gradeAt, gradeMatrix, mixGrade } from "./grade";
 
 interface Vec {
   x: number;
@@ -62,11 +72,31 @@ export class Scene {
   private snapshotAt = 0;
   private time = 0;
   private rippleList: Ripple[] = [];
+  private readonly grade = new ColorMatrixFilter();
+  private gradeNow: Grade | null = null;
+  private readonly rain = new Graphics();
+  private readonly fog = new Sprite();
+  private fogKey = "";
+  private drops: { x: number; y: number; v: number }[] = [];
+  /** 0..1 fade of the rain and fog overlays. */
+  private rainLevel = 0;
+  private fogLevel = 0;
 
   async init(host: HTMLElement): Promise<void> {
+    // Worker-side fetches can't reach Tauri's asset protocol in release builds.
+    Assets.setPreferences({ preferWorkers: false });
     await this.app.init({ resizeTo: host, background: "#0e1512", antialias: true });
     host.appendChild(this.app.canvas);
-    this.world.addChild(this.bg, this.ripples, this.lines, this.floats, this.blanks);
+    this.world.addChild(
+      this.bg,
+      this.ripples,
+      this.lines,
+      this.floats,
+      this.blanks,
+      this.fog,
+      this.rain,
+    );
+    this.world.filters = [this.grade];
     this.app.stage.addChild(this.world);
     this.app.ticker.add((t) => this.frame(t.deltaMS / 1000));
   }
@@ -80,12 +110,15 @@ export class Scene {
     this.session = session;
     this.snapshotAt = at;
     if (!session) return;
-    const url = `/${session.background}`;
+    // Absolute URL: Pixi mis-resolves root-relative paths under tauri://localhost.
+    const url = new URL(`/${session.background}`, window.location.href).href;
     if (url !== this.bgUrl) {
       this.bgUrl = url;
-      Assets.load<Texture>(url).then((tex) => {
-        this.bg.texture = tex;
-      });
+      Assets.load<Texture>(url)
+        .then((tex) => {
+          this.bg.texture = tex;
+        })
+        .catch((e) => console.error(`background ${url} failed to load:`, e));
     }
     while (this.rods.length < session.rods.length) {
       const g = new RodGfx();
@@ -97,6 +130,7 @@ export class Scene {
   }
 
   onEvent(e: GameEvent): void {
+    if (!("rod" in e)) return;
     const st = this.session?.rods[e.rod]?.state;
     const at = st && "at" in st ? st.at : st?.state === "Casting" ? st.to : null;
     if (!at) return;
@@ -155,6 +189,7 @@ export class Scene {
     this.bg.height = f.h;
 
     const s = this.session;
+    if (s) this.updateAtmosphere(s.clock.hour, s.weather, dt);
     this.rods.forEach((g, i) => {
       const rod = s?.rods[i];
       this.drawRod(g, i, rod ?? null, i === s?.activeRod, dt);
@@ -344,6 +379,74 @@ export class Scene {
     g.floatBody.rotation = tilt;
     g.floatBody.mask = inAir ? null : g.floatMask;
     g.floatMask.visible = !inAir;
+  }
+
+  private updateAtmosphere(hour: number, weather: Weather, dt: number): void {
+    // Colour grade eases towards the target so weather changes fade in.
+    const target = gradeAt(hour, weather);
+    this.gradeNow = this.gradeNow ? mixGrade(this.gradeNow, target, Math.min(1, dt * 0.4)) : target;
+    this.grade.matrix = gradeMatrix(this.gradeNow) as typeof this.grade.matrix;
+
+    const ease = (cur: number, want: number) => cur + (want - cur) * Math.min(1, dt * 0.3);
+    this.rainLevel = ease(this.rainLevel, weather === "Rain" ? 1 : 0);
+    this.fogLevel = ease(this.fogLevel, weather === "Fog" ? 1 : 0);
+
+    const { width, height } = this.app.screen;
+    const horizon = this.toScreen({ x: 0, y: this.session?.view.horizonY ?? 0.5 }).y;
+
+    // Fog: a milky veil, densest around the far shore (gradient texture,
+    // rebuilt only when the layout changes).
+    this.fog.alpha = this.fogLevel;
+    this.fog.visible = this.fogLevel > 0.01;
+    const key = `${Math.round(height)}:${Math.round(horizon)}`;
+    if (this.fog.visible && key !== this.fogKey) {
+      this.fogKey = key;
+      const c = document.createElement("canvas");
+      c.width = 4;
+      c.height = Math.max(2, Math.round(height));
+      const ctx = c.getContext("2d")!;
+      const grad = ctx.createLinearGradient(0, 0, 0, c.height);
+      const hz = Math.min(0.98, Math.max(0.02, horizon / height));
+      grad.addColorStop(0, "rgba(223,228,226,0.2)");
+      grad.addColorStop(Math.max(0, hz - 0.25), "rgba(223,228,226,0.3)");
+      grad.addColorStop(hz, "rgba(223,228,226,0.68)");
+      grad.addColorStop(Math.min(1, hz + 0.3), "rgba(223,228,226,0.3)");
+      grad.addColorStop(1, "rgba(223,228,226,0.18)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, c.width, c.height);
+      this.fog.texture.destroy(true);
+      this.fog.texture = Texture.from(c);
+    }
+    this.fog.width = width;
+    this.fog.height = height;
+
+    // Rain: falling streaks and rings on the water.
+    this.rain.clear();
+    const want = Math.round(this.rainLevel * 260);
+    while (this.drops.length < want)
+      this.drops.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        v: 0.8 + Math.random() * 0.6,
+      });
+    this.drops.length = Math.min(this.drops.length, want);
+    for (const d of this.drops) {
+      d.y += d.v * height * dt * 1.6;
+      d.x -= d.v * width * dt * 0.08;
+      if (d.y > height) {
+        d.y = -20;
+        d.x = Math.random() * width * 1.1;
+      }
+      this.rain
+        .moveTo(d.x, d.y)
+        .lineTo(d.x - 3, d.y + 18 * d.v)
+        .stroke({ color: 0xdde6ee, width: 1.3, alpha: 0.55 * this.rainLevel });
+    }
+    if (this.rainLevel > 0.2 && Math.random() < dt * 40 * this.rainLevel) {
+      const y = horizon + (height - horizon) * Math.random() ** 0.7;
+      const img = this.toImage(Math.random() * width, y);
+      this.addRipple({ x: Math.random() * width, y }, this.scaleAt(img.y), 0.15);
+    }
   }
 
   private addRipple(p: Vec, scale: number, strength: number): void {

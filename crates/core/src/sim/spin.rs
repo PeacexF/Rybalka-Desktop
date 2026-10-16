@@ -7,7 +7,7 @@ use crate::content::{LureDef, View};
 use crate::map::{Bottom, Cell};
 
 /// Lures get more attention than baits sitting still: they cover water.
-pub const LURE_RATE_MULT: f64 = 3.0;
+pub const LURE_RATE_MULT: f64 = 1.5;
 /// The lure is out of the water once it is this close.
 pub const LURE_OUT_M: f64 = 2.5;
 /// Chance per second (while reeling along the bottom) of a snag.

@@ -1,3 +1,5 @@
+import type { Weather } from "../ipc/bindings/Weather";
+import { sendInput } from "../ipc/game";
 import { useGame } from "../store/game";
 import { formatClock } from "../format";
 import { CatchCard } from "./CatchCard";
@@ -5,6 +7,15 @@ import { DebugOverlay } from "./DebugOverlay";
 import { FightBar } from "./FightBar";
 import { Keepnet } from "./Keepnet";
 import { RodBar } from "./RodBar";
+
+export const WEATHER_NAME: Record<Weather, string> = {
+  Clear: "Ясно",
+  Cloudy: "Облачно",
+  Overcast: "Пасмурно",
+  Rain: "Дождь",
+  Wind: "Ветер",
+  Fog: "Туман",
+};
 
 export function Hud() {
   const session = useGame((s) => s.snapshot?.session ?? null);
@@ -20,8 +31,15 @@ export function Hud() {
         <div className="panel place">
           <div className="place-name">{session.spotName}</div>
           <div className="place-clock">
-            День {session.clock.day}, {formatClock(session.clock.hour)}
-            {session.clock.fastForward && <span className="ff"> ▶▶</span>}
+            День {session.clock.day}, {formatClock(session.clock.hour)} ·{" "}
+            {WEATHER_NAME[session.weather]}
+            <button
+              className={`ff-btn ${session.clock.fastForward ? "on" : ""}`}
+              title="Ускорить время (или держите T)"
+              onClick={() => sendInput({ type: "FastForward", on: !session.clock.fastForward })}
+            >
+              ▶▶
+            </button>
           </div>
         </div>
         <button className="panel keepnet-btn" onClick={() => useGame.getState().toggleKeepnet()}>

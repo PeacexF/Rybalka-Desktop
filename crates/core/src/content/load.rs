@@ -89,6 +89,9 @@ pub(super) fn validate(c: &Content) -> Result<(), ContentError> {
                 return invalid(format!("fish `{}`: bait `{bait}` weight not in 0..1", f.id));
             }
         }
+        if f.weather.values().any(|w| *w < 0.0) {
+            return invalid(format!("fish `{}`: weather factors must be >= 0", f.id));
+        }
         if f.strength <= 0.0 {
             return invalid(format!("fish `{}`: strength must be > 0", f.id));
         }

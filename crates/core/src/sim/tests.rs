@@ -23,6 +23,7 @@ fn content() -> Arc<Content> {
         bite: BiteStyle::Bold,
         price_per_kg: 50.0,
         xp_per_kg: 10.0,
+        weather: BTreeMap::new(),
     }];
     let baits = vec![BaitDef {
         id: "worm".into(),
@@ -268,6 +269,7 @@ fn spinning_world(seed: u64) -> World {
         bite: BiteStyle::Predator,
         price_per_kg: 100.0,
         xp_per_kg: 10.0,
+        weather: BTreeMap::new(),
     });
     let mut baits = c.baits.clone();
     baits.push(BaitDef {

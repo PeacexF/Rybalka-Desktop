@@ -34,6 +34,7 @@ pub struct SessionView {
     pub rods: Vec<RodView>,
     pub keepnet: Vec<Catch>,
     pub groundbait: Vec<super::groundbait::Patch>,
+    pub weather: crate::weather::Weather,
     pub debug: Option<DebugView>,
 }
 
@@ -149,6 +150,7 @@ impl World {
             rods: s.rods.iter().map(|r| self.rod_view(s, r)).collect(),
             keepnet: s.keepnet.clone(),
             groundbait: s.groundbait.clone(),
+            weather: s.weather.current,
             debug: self.debug.then(|| DebugView {
                 bite_rates: s.rods.iter().map(|r| self.debug_rates(s, r)).collect(),
             }),
@@ -241,6 +243,7 @@ impl World {
                 bait_depth_m: run.depth_m,
                 bait: &r.tackle.bait,
                 hour: s.clock.hour(),
+                weather: s.weather.current,
                 bonus: run.attraction(&lure, r.tackle.retrieve_mps),
             };
             return bite::rates(&self.content, zone, &p)
@@ -261,6 +264,7 @@ impl World {
             bait_depth_m,
             bait: &r.tackle.bait,
             hour: s.clock.hour(),
+            weather: s.weather.current,
             bonus: super::groundbait::bonus(&s.groundbait, &s.spot.view, *at),
         };
         bite::rates(&self.content, zone, &p)

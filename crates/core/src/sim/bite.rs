@@ -6,6 +6,7 @@ use ts_rs::TS;
 use crate::content::{BiteStyle, Content, FishDef, Horizon, ZoneDef};
 use crate::map::Cell;
 use crate::rng::Rng;
+use crate::weather::Weather;
 
 /// Bites per real second for a species with every factor at 1.0.
 pub const BASE_RATE: f64 = 1.0 / 45.0;
@@ -18,6 +19,7 @@ pub struct Presentation<'a> {
     pub bait_depth_m: f64,
     pub bait: &'a str,
     pub hour: f64,
+    pub weather: Weather,
     /// Extra multiplier (groundbait etc).
     pub bonus: f64,
 }
@@ -40,6 +42,7 @@ pub fn species_rate(fish: &FishDef, zone_weight: f64, p: &Presentation) -> f64 {
         * depth_match(fish, p.cell.depth_m)
         * horizon_match(fish.horizon, p)
         * fish.activity_at(p.hour)
+        * fish.weather_factor(p.weather)
         * p.bonus
 }
 
@@ -185,6 +188,7 @@ mod tests {
             bite: BiteStyle::Twitchy,
             price_per_kg: 50.0,
             xp_per_kg: 10.0,
+            weather: BTreeMap::new(),
         }
     }
 
@@ -198,6 +202,7 @@ mod tests {
             bait_depth_m: bait_depth,
             bait,
             hour: 8.0,
+            weather: Weather::Cloudy,
             bonus: 1.0,
         }
     }

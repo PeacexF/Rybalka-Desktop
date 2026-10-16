@@ -44,7 +44,7 @@ impl Clock {
 
 impl Default for Clock {
     fn default() -> Self {
-        Self::at(1, 6, 0)
+        Self::at(1, 5, 30)
     }
 }
 

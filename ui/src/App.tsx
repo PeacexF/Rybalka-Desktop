@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameEvent } from "./ipc/bindings/GameEvent";
 import { baits, sendInput, setDebug, startSession, subscribe } from "./ipc/game";
-import { sfx } from "./audio";
-import { Hud } from "./hud/Hud";
+import { setRain, sfx } from "./audio";
+import { Hud, WEATHER_NAME } from "./hud/Hud";
 import { Scene } from "./scene/Scene";
 import { WaterMap } from "./scene/WaterMap";
 import { onGameEvent, useGame } from "./store/game";
@@ -18,6 +18,7 @@ const EVENT_TOASTS: Partial<Record<GameEvent["type"], [string, "info" | "bad" | 
 };
 
 function playEventSound(e: GameEvent): void {
+  if (!("rod" in e)) return;
   const s = useGame.getState().snapshot?.session;
   const rod = s?.rods[e.rod];
   switch (e.type) {
@@ -83,9 +84,15 @@ export function App() {
       playEventSound(e);
       const t = EVENT_TOASTS[e.type];
       if (t) useGame.getState().toast(t[0], t[1]);
+      if (e.type === "WeatherChanged") {
+        useGame.getState().toast(`Погода меняется: ${WEATHER_NAME[e.weather].toLowerCase()}`);
+        setRain(e.weather === "Rain" ? 1 : 0);
+      }
     });
     subscribe((s) => {
+      const first = !useGame.getState().snapshot?.session && s.session;
       useGame.getState().setSnapshot(s);
+      if (first) setRain(s.session!.weather === "Rain" ? 1 : 0);
       sceneRef.current?.update(s.session, performance.now());
       const url = s.session ? `/${s.session.map}` : "";
       if (url && url !== mapUrl) {

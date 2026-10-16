@@ -16,6 +16,7 @@ use crate::clock::Clock;
 use crate::content::{BaitKind, Content, SpotDef, View, ZoneDef};
 use crate::map::WaterMap;
 use crate::rng::Rng;
+use crate::weather::{Weather, WeatherState};
 use bite::Presentation;
 use fight::Outcome;
 use rod::{BiteState, Hooked, Point, Rod, RodKind, RodState, Tackle};
@@ -53,18 +54,54 @@ pub struct Catch {
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 #[ts(export)]
 pub enum Input {
-    Cast { rod: usize, x: f64, y: f64 },
-    Strike { rod: usize },
-    Reel { rod: usize, on: bool },
-    Retrieve { rod: usize },
-    SetDrag { rod: usize, kg: f64 },
-    SetFloatDepth { rod: usize, m: f64 },
-    SetRetrieveSpeed { rod: usize, mps: f64 },
-    SetBait { rod: usize, bait: String },
-    SelectRod { rod: usize },
-    KeepCatch { rod: usize },
-    ReleaseCatch { rod: usize },
-    FastForward { on: bool },
+    Cast {
+        rod: usize,
+        x: f64,
+        y: f64,
+    },
+    Strike {
+        rod: usize,
+    },
+    Reel {
+        rod: usize,
+        on: bool,
+    },
+    Retrieve {
+        rod: usize,
+    },
+    SetDrag {
+        rod: usize,
+        kg: f64,
+    },
+    SetFloatDepth {
+        rod: usize,
+        m: f64,
+    },
+    SetRetrieveSpeed {
+        rod: usize,
+        mps: f64,
+    },
+    SetBait {
+        rod: usize,
+        bait: String,
+    },
+    SelectRod {
+        rod: usize,
+    },
+    KeepCatch {
+        rod: usize,
+    },
+    ReleaseCatch {
+        rod: usize,
+    },
+    FastForward {
+        on: bool,
+    },
+    /// Developer cheat (only with the debug overlay on): set hour and/or weather.
+    Debug {
+        hour: Option<f64>,
+        weather: Option<Weather>,
+    },
 }
 
 /// Something noteworthy that happened during a tick (sounds, toasts).
@@ -83,6 +120,7 @@ pub enum GameEvent {
     Landed { rod: usize, catch: Catch },
     Snagged { rod: usize },
     Unsnagged { rod: usize },
+    WeatherChanged { weather: Weather },
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -99,6 +137,8 @@ pub enum SimError {
     UnknownBait(String),
     #[error("`{0}` does not fit this rod")]
     WrongBait(String),
+    #[error("debug commands need the debug overlay")]
+    DebugOff,
 }
 
 /// A fishing session at one spot.
@@ -111,6 +151,7 @@ pub struct Session {
     pub active: usize,
     pub keepnet: Vec<Catch>,
     pub groundbait: Vec<groundbait::Patch>,
+    pub weather: WeatherState,
 }
 
 /// Authoritative game state, advanced in fixed steps.
@@ -160,11 +201,14 @@ impl World {
             .spot(spot_id)
             .ok_or_else(|| SimError::UnknownSpot(spot_id.into()))?
             .clone();
+        let clock = Clock::default();
+        let weather = WeatherState::new(clock.day(), clock.hour(), &mut self.rng);
         self.session = Some(Session {
             location_id: location_id.into(),
             spot,
             map,
-            clock: Clock::default(),
+            clock,
+            weather,
             rods: rods.into_iter().map(Rod::new).collect(),
             active: 0,
             keepnet: Vec::new(),
@@ -192,7 +236,7 @@ impl World {
             | Input::SelectRod { rod }
             | Input::KeepCatch { rod }
             | Input::ReleaseCatch { rod } => Some(*rod),
-            Input::FastForward { .. } => None,
+            Input::FastForward { .. } | Input::Debug { .. } => None,
         };
         if let Some(i) = rod_idx
             && i >= s.rods.len()
@@ -262,6 +306,21 @@ impl World {
                 }
             }
             Input::FastForward { on } => s.clock.fast_forward = on,
+            Input::Debug { hour, weather } => {
+                if !self.debug {
+                    return Err(SimError::DebugOff);
+                }
+                if let Some(h) = hour {
+                    let day_start = f64::from(s.clock.day() - 1) * 24.0 * 60.0;
+                    s.clock.minutes = day_start + h.rem_euclid(24.0) * 60.0;
+                }
+                // Re-anchor the weather to the new time so it doesn't re-roll at once.
+                let w = weather.unwrap_or(s.weather.current);
+                s.weather.set(w, s.clock.day(), s.clock.hour());
+                if weather.is_some() {
+                    self.events.push(GameEvent::WeatherChanged { weather: w });
+                }
+            }
         }
         Ok(())
     }
@@ -276,6 +335,11 @@ impl World {
         s.clock.advance(dt);
         groundbait::decay(&mut s.groundbait, dt);
         let hour = s.clock.hour();
+        if s.weather.update(s.clock.day(), hour, &mut self.rng) {
+            self.events.push(GameEvent::WeatherChanged {
+                weather: s.weather.current,
+            });
+        }
         for i in 0..s.rods.len() {
             step_rod(
                 &self.content,
@@ -489,6 +553,7 @@ fn step_rod(
                 bait_depth_m,
                 bait: &r.tackle.bait,
                 hour,
+                weather: s.weather.current,
                 bonus: groundbait::bonus(&s.groundbait, &s.spot.view, *at),
             };
             let Some(bite) = roll_bite(content, zone, &p, dt, rng) else {
@@ -560,6 +625,7 @@ fn step_rod(
                 bait_depth_m: run.depth_m,
                 bait: &r.tackle.bait,
                 hour,
+                weather: s.weather.current,
                 bonus: run.attraction(&lure, r.tackle.retrieve_mps),
             };
             let Some(bite) = roll_bite(content, zone, &p, dt, rng) else {

@@ -13,7 +13,9 @@ export function FightBar({ rod, state }: { rod: RodView; state: Fighting }) {
     <div className="fight">
       <div className="fight-row">
         <span>{state.distanceM.toFixed(1)} м</span>
-        <span className={state.slipping ? "slip on" : "slip"}>фрикцион трещит</span>
+        <span className={state.slipping ? "slip on" : "slip"}>
+          {state.reeling ? "не крутите на рывке!" : "фрикцион трещит"}
+        </span>
       </div>
       <div className="tension">
         <div

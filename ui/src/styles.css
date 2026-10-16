@@ -123,8 +123,16 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-.ff {
-  color: var(--accent);
+.ff-btn {
+  margin-left: 8px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.ff-btn.on {
+  background: var(--accent);
+  color: #1c1608;
 }
 
 .keepnet-btn {
@@ -464,6 +472,21 @@ kbd {
     monospace;
   background: rgba(0, 0, 0, 0.6);
   border-radius: 4px;
+}
+
+.debug {
+  pointer-events: auto;
+}
+
+.debug-row {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.debug-row button {
+  padding: 0 6px;
+  font: inherit;
 }
 
 .fatal {

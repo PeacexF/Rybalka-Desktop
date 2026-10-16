@@ -24,6 +24,18 @@ pub struct FishDef {
     pub bite: BiteStyle,
     pub price_per_kg: f64,
     pub xp_per_kg: f64,
+    /// Overrides of the default weather multipliers for this species.
+    #[serde(default)]
+    pub weather: BTreeMap<crate::weather::Weather, f64>,
+}
+
+impl FishDef {
+    pub fn weather_factor(&self, w: crate::weather::Weather) -> f64 {
+        self.weather
+            .get(&w)
+            .copied()
+            .unwrap_or_else(|| w.default_activity())
+    }
 }
 
 impl FishDef {
@@ -227,6 +239,7 @@ mod tests {
             bite: BiteStyle::Bold,
             price_per_kg: 1.0,
             xp_per_kg: 1.0,
+            weather: BTreeMap::new(),
         }
     }
 

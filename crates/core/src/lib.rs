@@ -8,5 +8,6 @@ pub mod content;
 pub mod map;
 pub mod rng;
 pub mod sim;
+pub mod weather;
 
 pub use sim::{Input, Snapshot, World};

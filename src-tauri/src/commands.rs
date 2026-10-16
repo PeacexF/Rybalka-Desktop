@@ -59,8 +59,26 @@ pub fn start_session(
                 Tackle::starter_spinning(),
             ],
         )
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+        dev_start_override(w);
+        Ok(())
     })?
+}
+
+/// `RYBALKA_DEV_START="21.5,Rain"` starts sessions at that hour/weather
+/// (for screenshots and balance checks).
+fn dev_start_override(w: &mut rybalka_core::World) {
+    let Ok(spec) = std::env::var("RYBALKA_DEV_START") else {
+        return;
+    };
+    let mut parts = spec.split(',');
+    let hour = parts.next().and_then(|h| h.trim().parse::<f64>().ok());
+    let weather = parts
+        .next()
+        .and_then(|w| serde_json::from_value(serde_json::Value::String(w.trim().into())).ok());
+    w.debug = true;
+    let _ = w.input(Input::Debug { hour, weather });
+    w.debug = false;
 }
 
 #[tauri::command]
@@ -76,4 +94,10 @@ pub fn set_debug(game: State<'_, GameHandle>, on: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn baits(game: State<'_, GameHandle>) -> Result<Vec<rybalka_core::sim::BaitInfo>, String> {
     game.with_world(|w| w.baits())
+}
+
+/// Frontend errors and warnings, forwarded to stderr (release builds have no devtools).
+#[tauri::command]
+pub fn log_ui(level: String, message: String) {
+    eprintln!("[ui:{level}] {message}");
 }
