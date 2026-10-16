@@ -4,7 +4,7 @@
     kind: River,
     description: "Песчаные косы, перекаты и ямы. Голавль и язь, на рассвете бьёт жерех, в ямах — судак и лещ.",
     rank: 2,
-    price_per_day: 120,
+    price_per_day: 450,
     max_days: 5,
     spots: [
         (
@@ -15,10 +15,10 @@
             // Must match assets/locations/river/sand/map.ron
             view: (horizonY: 0.47, shoreY: 1.0, nearM: 2.0),
             zones: [
-                (id: 1, name: "Стремнина", fish: {"chub": 1.0, "bleak": 1.0, "roach": 0.8, "ide": 0.7, "asp": 0.5, "perch": 0.4}),
-                (id: 2, name: "Перекат", fish: {"chub": 1.0, "bleak": 1.0, "asp": 0.7, "roach": 0.6, "perch": 0.5}),
-                (id: 3, name: "Подмытый берег", fish: {"chub": 1.2, "ide": 0.8, "pike": 0.6, "perch": 0.6}),
-                (id: 4, name: "Яма", fish: {"bream": 1.0, "zander": 0.8, "ide": 0.8, "ruffe": 0.6}),
+                (id: 1, name: "Стремнина", fish: {"chub": 1.3, "bleak": 1.3, "roach": 1.05, "ide": 0.9, "asp": 0.65, "perch": 0.5}),
+                (id: 2, name: "Перекат", fish: {"chub": 1.3, "bleak": 1.3, "asp": 0.9, "roach": 0.8, "perch": 0.65}),
+                (id: 3, name: "Подмытый берег", fish: {"chub": 1.55, "ide": 1.05, "pike": 0.8, "perch": 0.8}),
+                (id: 4, name: "Яма", fish: {"bream": 1.3, "zander": 1.05, "ide": 1.05, "ruffe": 0.8}),
             ],
         ),
         (
@@ -29,10 +29,10 @@
             // Must match assets/locations/river/reach/map.ron
             view: (horizonY: 0.275, shoreY: 1.0, nearM: 3.0, fov: 1.42),
             zones: [
-                (id: 1, name: "Плёс", fish: {"roach": 1.0, "bleak": 0.8, "bream": 0.6, "white_bream": 0.6, "asp": 0.6, "ide": 0.5}),
-                (id: 2, name: "Ивы", fish: {"chub": 1.2, "ide": 1.0, "pike": 0.7, "perch": 0.6}),
-                (id: 3, name: "Бровка русла", fish: {"bream": 1.2, "zander": 1.0, "white_bream": 0.8, "ruffe": 0.6}),
-                (id: 4, name: "Затон", fish: {"pike": 1.2, "perch": 0.8, "rudd": 0.8, "tench": 0.6}),
+                (id: 1, name: "Плёс", fish: {"roach": 1.3, "bleak": 1.05, "bream": 0.8, "white_bream": 0.8, "asp": 0.8, "ide": 0.65}),
+                (id: 2, name: "Ивы", fish: {"chub": 1.55, "ide": 1.3, "pike": 0.9, "perch": 0.8}),
+                (id: 3, name: "Бровка русла", fish: {"bream": 1.55, "zander": 1.3, "white_bream": 1.05, "ruffe": 0.8}),
+                (id: 4, name: "Затон", fish: {"pike": 1.55, "perch": 1.05, "rudd": 1.05, "tench": 0.8}),
             ],
         ),
     ],

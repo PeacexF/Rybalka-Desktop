@@ -39,6 +39,8 @@ TypeScript-типы для IPC генерируются из Rust через `ts
 ```sh
 # Отчёт по балансу: интервалы поклёвок по снастям/наживкам/часам и исходы вываживания
 cargo run -p rybalka-devtools --release --bin balance -- pond willow
+# Экономика: ₽/ч и опыт/ч по водоёмам и снастям, окупаемость путёвок, время до каждого разряда
+cargo run -p rybalka-devtools --release --bin balance -- economy
 
 # Подготовка фото водоёма (кроп 16:9 или --aspect 2.2 для панорамы, высота 1080) и сетка координат
 cargo run -p rybalka-devtools --release --bin photo -- prepare in.jpg out.jpg --crop-top 0.15
