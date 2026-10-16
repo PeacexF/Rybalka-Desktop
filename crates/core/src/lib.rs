@@ -3,6 +3,10 @@
 //! This crate owns all game rules and has no dependency on Tauri, so it can be
 //! unit-tested and run headless.
 
+pub mod clock;
+pub mod content;
+pub mod map;
+pub mod rng;
 pub mod sim;
 
-pub use sim::{Snapshot, World};
+pub use sim::{Input, Snapshot, World};

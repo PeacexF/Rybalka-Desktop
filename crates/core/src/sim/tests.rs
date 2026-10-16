@@ -1,0 +1,219 @@
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use super::rod::{RodKind, Tackle};
+use super::*;
+use crate::content::*;
+
+fn content() -> Arc<Content> {
+    let fish = vec![FishDef {
+        id: "roach".into(),
+        name: "Плотва".into(),
+        weight: WeightDist {
+            min: 0.05,
+            typical: 0.2,
+            max: 1.0,
+        },
+        trophy_kg: 0.6,
+        horizon: Horizon::Any,
+        depth: Range { min: 0.5, max: 4.0 },
+        activity: vec![],
+        baits: BTreeMap::from([("worm".to_string(), 1.0)]),
+        strength: 2.0,
+        bite: BiteStyle::Bold,
+        price_per_kg: 50.0,
+        xp_per_kg: 10.0,
+    }];
+    let baits = vec![BaitDef {
+        id: "worm".into(),
+        name: "Червь".into(),
+        kind: BaitKind::Natural,
+    }];
+    let locations = vec![LocationDef {
+        id: "pond".into(),
+        name: "Пруд".into(),
+        spots: vec![SpotDef {
+            id: "dam".into(),
+            name: "Плотина".into(),
+            background: "bg.png".into(),
+            map: "map.png".into(),
+            view: View {
+                horizon_y: 0.4,
+                shore_y: 0.9,
+                near_m: 3.0,
+            },
+            zones: vec![ZoneDef {
+                id: 1,
+                name: "Вода".into(),
+                fish: BTreeMap::from([("roach".to_string(), 1.0)]),
+            }],
+        }],
+    }];
+    Arc::new(Content::new(fish, baits, locations).unwrap())
+}
+
+/// Water (2 m deep, zone 1) below y = 0.45, land above.
+fn map() -> WaterMap {
+    WaterMap::from_fn(64, 64, |_, y| {
+        if y > 0.45 {
+            [40, 0, 1, 255]
+        } else {
+            [0, 0, 0, 0]
+        }
+    })
+}
+
+fn world() -> World {
+    let mut w = World::new(content(), 1234);
+    w.start_session("pond", "dam", map(), vec![Tackle::starter_float()])
+        .unwrap();
+    w
+}
+
+fn run_until(
+    w: &mut World,
+    max_ticks: u32,
+    pred: impl Fn(&GameEvent) -> bool,
+) -> Option<GameEvent> {
+    for _ in 0..max_ticks {
+        w.step();
+        if let Some(e) = w.drain_events().into_iter().find(|e| pred(e)) {
+            return Some(e);
+        }
+    }
+    None
+}
+
+#[test]
+fn full_catch_cycle() {
+    let mut w = world();
+    w.input(Input::Cast {
+        rod: 0,
+        x: 0.5,
+        y: 0.7,
+    })
+    .unwrap();
+    assert!(run_until(&mut w, 200, |e| matches!(e, GameEvent::CastLanded { .. })).is_some());
+
+    // Keep striking during the hookable phase until a fish is on.
+    let mut hooked = false;
+    for _ in 0..20 {
+        assert!(
+            run_until(&mut w, 20 * 60 * 10, |e| matches!(
+                e,
+                GameEvent::Bite { .. }
+            ))
+            .is_some(),
+            "no bite in 10 minutes"
+        );
+        // Wait for the decisive phase, then strike.
+        for _ in 0..200 {
+            let s = w.session().unwrap();
+            match &s.rods[0].state {
+                RodState::Bite { bite, .. } if bite.phase().hook_chance() > 0.5 => break,
+                RodState::Bite { .. } => w.step(),
+                _ => break,
+            }
+        }
+        w.input(Input::Strike { rod: 0 }).unwrap();
+        if matches!(
+            w.session().unwrap().rods[0].state,
+            RodState::Fighting { .. }
+        ) {
+            hooked = true;
+            break;
+        }
+    }
+    assert!(hooked, "never hooked a fish");
+
+    w.input(Input::Reel { rod: 0, on: true }).unwrap();
+    let landed = run_until(&mut w, 20 * 120, |e| {
+        matches!(
+            e,
+            GameEvent::Landed { .. } | GameEvent::LineBroke { .. } | GameEvent::Escaped { .. }
+        )
+    });
+    let Some(GameEvent::Landed { catch, .. }) = landed else {
+        panic!("expected a landed fish, got {landed:?}");
+    };
+    assert_eq!(catch.fish_id, "roach");
+
+    w.input(Input::KeepCatch { rod: 0 }).unwrap();
+    let s = w.session().unwrap();
+    assert_eq!(s.keepnet.len(), 1);
+    assert!(matches!(s.rods[0].state, RodState::Idle));
+}
+
+#[test]
+fn cast_on_land_returns_to_idle() {
+    let mut w = world();
+    // Max cast 25 m clamps y towards the horizon; aim at land near the top.
+    w.rods_mut()[0].tackle.max_cast_m = 1000.0;
+    w.input(Input::Cast {
+        rod: 0,
+        x: 0.5,
+        y: 0.42,
+    })
+    .unwrap();
+    assert!(run_until(&mut w, 400, |e| matches!(e, GameEvent::CastOnLand { .. })).is_some());
+    assert!(matches!(w.session().unwrap().rods[0].state, RodState::Idle));
+}
+
+#[test]
+fn cast_is_clamped_to_max_distance() {
+    let mut w = world();
+    w.input(Input::Cast {
+        rod: 0,
+        x: 0.5,
+        y: 0.46,
+    })
+    .unwrap();
+    let s = w.session().unwrap();
+    let RodState::Casting { target, .. } = s.rods[0].state else {
+        panic!("not casting");
+    };
+    let d = s.spot.view.distance_at(target.y);
+    assert!(d < 25.0 * 1.15, "cast {d} m");
+}
+
+#[test]
+fn float_deeper_than_water_lies_flat() {
+    let mut t = Tackle::starter_float();
+    t.float_depth_m = 3.0;
+    let cell = crate::map::Cell {
+        depth_m: 2.0,
+        bottom: crate::map::Bottom::Silt,
+        zone: 1,
+    };
+    assert_eq!(t.bait_depth(&cell), (2.0, true));
+    assert_eq!(t.kind, RodKind::Float);
+}
+
+#[test]
+fn snapshot_serializes() {
+    let mut w = world();
+    w.debug = true;
+    w.input(Input::Cast {
+        rod: 0,
+        x: 0.5,
+        y: 0.7,
+    })
+    .unwrap();
+    for _ in 0..100 {
+        w.step();
+    }
+    let json = serde_json::to_string(&w.snapshot()).unwrap();
+    assert!(json.contains("\"state\":\"Waiting\""), "{json}");
+}
+
+#[test]
+fn bad_rod_index_is_an_error() {
+    let mut w = world();
+    assert_eq!(w.input(Input::Strike { rod: 5 }), Err(SimError::NoRod(5)));
+}
+
+impl World {
+    fn rods_mut(&mut self) -> &mut Vec<Rod> {
+        &mut self.session.as_mut().unwrap().rods
+    }
+}

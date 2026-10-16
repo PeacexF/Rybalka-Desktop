@@ -1,0 +1,20 @@
+(
+    id: "pond",
+    name: "Пруд у деревни",
+    spots: [
+        (
+            id: "willow",
+            name: "Под берёзой",
+            background: "locations/pond/willow/bg.jpg",
+            map: "locations/pond/willow/map.png",
+            // Must match assets/locations/pond/willow/map.ron
+            view: (horizonY: 0.53, shoreY: 1.0, nearM: 5.0),
+            zones: [
+                (id: 1, name: "Плёс", fish: {"roach": 1.0, "perch": 0.6, "crucian": 0.4}),
+                (id: 2, name: "Под дальним берегом", fish: {"crucian": 1.6, "roach": 0.6, "perch": 0.3}),
+                (id: 3, name: "Под берёзой", fish: {"perch": 1.4, "roach": 0.7, "crucian": 0.3}),
+                (id: 4, name: "Старое русло", fish: {"roach": 1.2, "perch": 0.8, "crucian": 0.2}),
+            ],
+        ),
+    ],
+)

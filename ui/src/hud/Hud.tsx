@@ -1,0 +1,49 @@
+import { useGame } from "../store/game";
+import { formatClock } from "../format";
+import { CatchCard } from "./CatchCard";
+import { DebugOverlay } from "./DebugOverlay";
+import { FightBar } from "./FightBar";
+import { Keepnet } from "./Keepnet";
+import { RodPanel } from "./RodPanel";
+
+export function Hud() {
+  const session = useGame((s) => s.snapshot?.session ?? null);
+  const toasts = useGame((s) => s.toasts);
+  const keepnetOpen = useGame((s) => s.keepnetOpen);
+  const debug = useGame((s) => s.debug);
+  if (!session) return null;
+  const rod = session.rods[session.activeRod];
+
+  return (
+    <>
+      <div className="hud-top">
+        <div className="panel place">
+          <div className="place-name">{session.spotName}</div>
+          <div className="place-clock">
+            День {session.clock.day}, {formatClock(session.clock.hour)}
+            {session.clock.fastForward && <span className="ff"> ▶▶</span>}
+          </div>
+        </div>
+        <button className="panel keepnet-btn" onClick={() => useGame.getState().toggleKeepnet()}>
+          Садок · {session.keepnet.length} <kbd>S</kbd>
+        </button>
+      </div>
+
+      <div className="toasts">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.tone}`}>
+            {t.text}
+          </div>
+        ))}
+      </div>
+
+      {rod?.state.state === "Fighting" && <FightBar rod={rod} state={rod.state} />}
+      {rod && <RodPanel index={session.activeRod} rod={rod} />}
+      {rod?.state.state === "Landed" && (
+        <CatchCard index={session.activeRod} catch_={rod.state.catch} />
+      )}
+      {keepnetOpen && <Keepnet catches={session.keepnet} />}
+      {debug && <DebugOverlay session={session} />}
+    </>
+  );
+}

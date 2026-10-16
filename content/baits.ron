@@ -1,0 +1,6 @@
+// Наживки и приманки. `kind`: Natural — живая/растительная наживка, Lure — искусственная приманка.
+[
+    (id: "worm", name: "Червь", kind: Natural),
+    (id: "maggot", name: "Опарыш", kind: Natural),
+    (id: "bread", name: "Хлеб", kind: Natural),
+]

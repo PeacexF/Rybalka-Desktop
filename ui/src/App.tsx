@@ -1,12 +1,35 @@
-import { useEffect, useRef } from "react";
-import { subscribe } from "./ipc/game";
+import { useEffect, useRef, useState } from "react";
+import type { GameEvent } from "./ipc/bindings/GameEvent";
+import { baits, sendInput, setDebug, startSession, subscribe } from "./ipc/game";
+import { Hud } from "./hud/Hud";
 import { Scene } from "./scene/Scene";
-import { useGame } from "./store/game";
+import { WaterMap } from "./scene/WaterMap";
+import { onGameEvent, useGame } from "./store/game";
+
+const EVENT_TOASTS: Partial<Record<GameEvent["type"], [string, "info" | "bad" | "good"]>> = {
+  CastOnLand: ["Заброс на берег — снасть вернулась", "bad"],
+  Missed: ["Мимо! Пустая подсечка", "info"],
+  FishLeft: ["Рыба отошла", "info"],
+  LineBroke: ["Обрыв лески!", "bad"],
+  Escaped: ["Сход!", "bad"],
+};
+
+interface Hover {
+  x: number;
+  y: number;
+  depthM: number;
+  distanceM: number;
+  reachable: boolean;
+}
 
 export function App() {
   const stageRef = useRef<HTMLDivElement>(null);
-  const snapshot = useGame((s) => s.snapshot);
+  const sceneRef = useRef<Scene | null>(null);
+  const mapRef = useRef<WaterMap | null>(null);
+  const [hover, setHover] = useState<Hover | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Scene lifecycle.
   useEffect(() => {
     const host = stageRef.current;
     if (!host) return;
@@ -14,24 +37,189 @@ export function App() {
     let disposed = false;
     scene.init(host).then(() => {
       if (disposed) scene.destroy();
+      else sceneRef.current = scene;
     });
     return () => {
       disposed = true;
-      if (scene.app.renderer) scene.destroy();
+      if (sceneRef.current) {
+        sceneRef.current.destroy();
+        sceneRef.current = null;
+      }
     };
   }, []);
 
+  // Game connection: subscribe, start the session, load the water map.
   useEffect(() => {
-    subscribe(useGame.getState().setSnapshot).catch(console.error);
+    let mapUrl = "";
+    const off = onGameEvent((e) => {
+      sceneRef.current?.onEvent(e);
+      const t = EVENT_TOASTS[e.type];
+      if (t) useGame.getState().toast(t[0], t[1]);
+    });
+    subscribe((s) => {
+      useGame.getState().setSnapshot(s);
+      sceneRef.current?.update(s.session, performance.now());
+      const url = s.session ? `/${s.session.map}` : "";
+      if (url && url !== mapUrl) {
+        mapUrl = url;
+        WaterMap.load(url).then((m) => (mapRef.current = m));
+      }
+    })
+      .then(() => baits())
+      .then((b) => useGame.getState().setBaits(b))
+      .then(() => startSession("pond", "willow"))
+      .catch((e) => setError(String(e)));
+    return off;
   }, []);
+
+  // Keyboard.
+  useEffect(() => {
+    const active = () => {
+      const s = useGame.getState().snapshot?.session;
+      return s ? { index: s.activeRod, rod: s.rods[s.activeRod] } : null;
+    };
+    const down = (e: KeyboardEvent) => {
+      const a = active();
+      if (e.repeat && e.code !== "BracketLeft" && e.code !== "BracketRight") return;
+      switch (e.code) {
+        case "Space":
+          if (a) sendInput({ type: "Retrieve", rod: a.index });
+          e.preventDefault();
+          break;
+        case "KeyT":
+          sendInput({ type: "FastForward", on: true });
+          break;
+        case "KeyS":
+          useGame.getState().toggleKeepnet();
+          break;
+        case "Escape":
+          useGame.getState().toggleKeepnet(false);
+          break;
+        case "F3": {
+          useGame.getState().toggleDebug();
+          setDebug(useGame.getState().debug);
+          e.preventDefault();
+          break;
+        }
+        case "BracketLeft":
+        case "BracketRight":
+          if (a?.rod)
+            sendInput({
+              type: "SetFloatDepth",
+              rod: a.index,
+              m: a.rod.floatDepthM + (e.code === "BracketRight" ? 0.1 : -0.1),
+            });
+          break;
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "KeyT") sendInput({ type: "FastForward", on: false });
+    };
+    const blur = () => {
+      const a = active();
+      if (a) sendInput({ type: "Reel", rod: a.index, on: false });
+      sendInput({ type: "FastForward", on: false });
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
+
+  const activeRod = () => {
+    const s = useGame.getState().snapshot?.session;
+    return s ? { index: s.activeRod, rod: s.rods[s.activeRod]!, session: s } : null;
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const a = activeRod();
+    const scene = sceneRef.current;
+    if (!a || !scene) return;
+    if (e.button === 2) {
+      sendInput({ type: "Retrieve", rod: a.index });
+      return;
+    }
+    if (e.button !== 0) return;
+    switch (a.rod.state.state) {
+      case "Idle": {
+        const p = scene.toImage(e.clientX, e.clientY);
+        if (mapRef.current && !mapRef.current.sample(p.x, p.y)) {
+          useGame.getState().toast("Туда не забросить — там нет воды");
+          return;
+        }
+        sendInput({ type: "Cast", rod: a.index, x: p.x, y: p.y });
+        break;
+      }
+      case "Waiting":
+      case "Bite":
+        sendInput({ type: "Strike", rod: a.index });
+        break;
+      case "Fighting":
+        sendInput({ type: "Reel", rod: a.index, on: true });
+        (e.target as Element).setPointerCapture(e.pointerId);
+        break;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const a = activeRod();
+    if (a && e.button === 0) sendInput({ type: "Reel", rod: a.index, on: false });
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    const a = activeRod();
+    if (!a) return;
+    const step = e.deltaY < 0 ? 0.1 : -0.1;
+    sendInput({ type: "SetDrag", rod: a.index, kg: a.rod.dragKg + step });
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const scene = sceneRef.current;
+    const map = mapRef.current;
+    const a = activeRod();
+    if (!scene || !map || !a) return;
+    const p = scene.toImage(e.clientX, e.clientY);
+    const cell = map.sample(p.x, p.y);
+    if (!cell) return setHover(null);
+    const v = a.session.view;
+    const distanceM = (v.nearM * (v.shoreY - v.horizonY)) / Math.max(1e-3, p.y - v.horizonY);
+    setHover({
+      x: e.clientX,
+      y: e.clientY,
+      depthM: cell.depthM,
+      distanceM,
+      reachable: distanceM <= a.rod.maxCastM,
+    });
+  };
 
   return (
     <>
-      <div className="stage" ref={stageRef} />
+      <div
+        className="stage"
+        ref={stageRef}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHover(null)}
+        onWheel={onWheel}
+        onContextMenu={(e) => e.preventDefault()}
+      />
       <div className="overlay">
-        <div style={{ padding: 12, fontFamily: "monospace" }}>
-          tick {snapshot?.tick ?? "—"} · t={snapshot?.timeS.toFixed(1) ?? "—"}s
-        </div>
+        <Hud />
+        {hover && (
+          <div
+            className={`cursor-info ${hover.reachable ? "" : "far"}`}
+            style={{ left: hover.x + 16, top: hover.y + 12 }}
+          >
+            {hover.depthM.toFixed(1)} м · {Math.round(hover.distanceM)} м
+            {!hover.reachable && " (не добросить)"}
+          </div>
+        )}
+        {error && <div className="fatal">{error}</div>}
       </div>
     </>
   );

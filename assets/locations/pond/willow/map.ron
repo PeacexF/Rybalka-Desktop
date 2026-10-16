@@ -1,0 +1,44 @@
+// Water map spec for pond/willow. Rebuild with:
+//   cargo run -p rybalka-devtools --release --bin gen_map -- \
+//     assets/locations/pond/willow/map.ron assets/locations/pond/willow/map.png
+// Coordinates are normalized to the background image (0..1).
+(
+    size: (960, 540),
+    // Must match content/locations/pond.ron.
+    view: (horizonY: 0.53, shoreY: 1.0, nearM: 5.0),
+    water: [[
+        (0.0, 0.535), (0.14, 0.535), (0.25, 0.538), (0.27, 0.542), (0.31, 0.55),
+        (0.36, 0.553), (0.45, 0.557), (0.50, 0.56), (0.55, 0.565), (0.60, 0.572),
+        (0.65, 0.58), (0.70, 0.59), (0.75, 0.595), (0.80, 0.60), (0.85, 0.605),
+        // Birch branches hang over the water on the right.
+        (0.86, 0.70), (0.875, 0.80), (0.90, 0.87), (0.93, 0.95), (0.95, 1.0),
+        (0.0, 1.0),
+    ]],
+    depth: (near: 0.7, far: 3.2, far_at_m: 28.0, noise: 0.25, sand_within_m: 7.0),
+    default_zone: 1,
+    features: [
+        // Weedy shallows along the far bank.
+        (
+            shape: Polygon([(0.28, 0.54), (0.86, 0.60), (0.86, 0.645), (0.55, 0.60), (0.28, 0.56)]),
+            soft: 0.03,
+            depth: Some(Set(0.9)),
+            zone: Some(2),
+            bottom: Some(Weed),
+        ),
+        // Shaded pit with roots under the birch.
+        (
+            shape: Polygon([(0.72, 0.64), (0.86, 0.63), (0.88, 0.84), (0.78, 0.86)]),
+            soft: 0.04,
+            depth: Some(Add(0.8)),
+            zone: Some(3),
+            bottom: Some(Snag),
+        ),
+        // Old channel on the left, the deepest part of the pond.
+        (
+            shape: Ellipse(cx: 0.22, cy: 0.6, rx: 0.24, ry: 0.045),
+            soft: 0.03,
+            depth: Some(Add(1.2)),
+            zone: Some(4),
+        ),
+    ],
+)

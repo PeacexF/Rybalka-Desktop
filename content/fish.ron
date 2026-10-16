@@ -1,0 +1,53 @@
+// Виды рыб.
+//
+// weight     — min/typical/max, кг; вес роллится лог-нормально вокруг typical
+// horizon    — Bottom | Mid | Any: где кормится
+// depth      — предпочитаемая глубина водоёма, м
+// activity   — (час, 0..1), линейная интерполяция по кругу суток
+// baits      — наживка → привлекательность 0..1
+// strength   — тяга на кг веса при вываживании
+// bite       — Twitchy | Bold | Slow | Lift | Predator: характер поклёвки
+[
+    (
+        id: "roach",
+        name: "Плотва",
+        weight: (min: 0.04, typical: 0.15, max: 1.2),
+        trophy_kg: 0.6,
+        horizon: Mid,
+        depth: (min: 0.8, max: 4.0),
+        activity: [(4, 0.4), (6, 1.0), (10, 0.7), (14, 0.35), (18, 0.9), (21, 0.6), (23, 0.15)],
+        baits: {"maggot": 1.0, "bread": 0.8, "worm": 0.6},
+        strength: 2.0,
+        bite: Twitchy,
+        price_per_kg: 60,
+        xp_per_kg: 25,
+    ),
+    (
+        id: "perch",
+        name: "Окунь",
+        weight: (min: 0.04, typical: 0.18, max: 1.8),
+        trophy_kg: 0.8,
+        horizon: Any,
+        depth: (min: 1.0, max: 6.0),
+        activity: [(5, 0.5), (8, 1.0), (12, 0.8), (16, 0.7), (19, 0.9), (21, 0.3), (23, 0.05)],
+        baits: {"worm": 1.0, "maggot": 0.5},
+        strength: 2.3,
+        bite: Bold,
+        price_per_kg: 80,
+        xp_per_kg: 30,
+    ),
+    (
+        id: "crucian",
+        name: "Карась",
+        weight: (min: 0.08, typical: 0.3, max: 2.0),
+        trophy_kg: 1.0,
+        horizon: Bottom,
+        depth: (min: 0.3, max: 2.5),
+        activity: [(4, 0.8), (7, 1.0), (11, 0.5), (15, 0.4), (19, 1.0), (22, 0.7)],
+        baits: {"bread": 1.0, "worm": 0.7, "maggot": 0.6},
+        strength: 1.9,
+        bite: Slow,
+        price_per_kg: 70,
+        xp_per_kg: 25,
+    ),
+]

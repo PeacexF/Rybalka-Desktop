@@ -1,0 +1,18 @@
+[package]
+name = "rybalka-devtools"
+description = "Developer tools: placeholder asset generation, content checks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+rybalka-core.workspace = true
+png = "0.18"
+ron = "0.12"
+serde = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "rayon"] }
+
+[lints]
+workspace = true

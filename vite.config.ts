@@ -5,6 +5,8 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   root: "ui",
+  // Game assets are shared with the Rust side; served at /.
+  publicDir: "../assets",
   plugins: [react()],
   clearScreen: false,
   build: {
