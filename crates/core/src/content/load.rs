@@ -94,6 +94,24 @@ pub(super) fn validate(c: &Content) -> Result<(), ContentError> {
         }
     }
 
+    for b in &c.baits {
+        match (b.kind, &b.lure) {
+            (super::BaitKind::Lure, None) => {
+                return invalid(format!(
+                    "bait `{}`: lures need `lure: Some(...)` stats",
+                    b.id
+                ));
+            }
+            (super::BaitKind::Natural, Some(_)) => {
+                return invalid(format!("bait `{}`: only lures have lure stats", b.id));
+            }
+            (_, Some(l)) if l.speed.min <= 0.0 || l.speed.min > l.speed.max => {
+                return invalid(format!("bait `{}`: bad lure speed range", b.id));
+            }
+            _ => {}
+        }
+    }
+
     for l in &c.locations {
         if l.spots.is_empty() {
             return invalid(format!("location `{}`: no spots", l.id));

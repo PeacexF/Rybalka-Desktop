@@ -109,6 +109,23 @@ pub struct BaitDef {
     pub id: String,
     pub name: String,
     pub kind: BaitKind,
+    /// Required for `Lure`s.
+    #[serde(default)]
+    pub lure: Option<LureDef>,
+}
+
+/// How an artificial lure behaves on the retrieve.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LureDef {
+    /// Retrieve speed (m/s) at which it works best.
+    pub speed: Range,
+    /// Running depth while reeled, metres (clamped by the bottom).
+    pub depth: f64,
+    /// Vertical speed while paused, m/s (+ sinks, − floats up).
+    pub sink_mps: f64,
+    /// Attractiveness while paused (falling/hanging), relative to a good retrieve.
+    pub pause: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]

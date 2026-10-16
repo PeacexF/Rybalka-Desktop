@@ -3,17 +3,16 @@
 /**
  * Perspective calibration of a spot, in normalized image coordinates.
  */
-export type View = {
-  /**
-   * `y` of the horizon (infinitely far).
-   */
-  horizonY: number;
-  /**
-   * `y` of the near shoreline.
-   */
-  shoreY: number;
-  /**
-   * Distance from the angler to the water at `shore_y`, metres.
-   */
-  nearM: number;
-};
+export type View = { 
+/**
+ * `y` of the horizon (infinitely far).
+ */
+horizonY: number, 
+/**
+ * `y` of the near shoreline.
+ */
+shoreY: number, 
+/**
+ * Distance from the angler to the water at `shore_y`, metres.
+ */
+nearM: number, };

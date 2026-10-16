@@ -3,4 +3,4 @@
 /**
  * Point in normalized image coordinates of the spot.
  */
-export type Point = { x: number; y: number };
+export type Point = { x: number, y: number, };

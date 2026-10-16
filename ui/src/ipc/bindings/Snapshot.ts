@@ -5,4 +5,4 @@ import type { SessionView } from "./SessionView";
 /**
  * State streamed to the UI every tick.
  */
-export type Snapshot = { tick: number; session: SessionView | null; events: Array<GameEvent> };
+export type Snapshot = { tick: number, session: SessionView | null, events: Array<GameEvent>, };

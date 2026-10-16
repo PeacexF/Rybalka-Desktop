@@ -3,31 +3,16 @@ import type { BitePhase } from "./BitePhase";
 import type { Catch } from "./Catch";
 import type { Point } from "./Point";
 
-export type RodStateView =
-  | { state: "Idle" }
-  | { state: "Casting"; to: Point; progress: number }
-  | { state: "Waiting"; at: Point; depthM: number; lying: boolean }
-  | {
-      state: "Bite";
-      at: Point;
-      depthM: number;
-      lying: boolean;
-      phase: BitePhase;
-      /**
-       * Seconds into the current phase.
-       */
-      phaseT: number;
-    }
-  | { state: "Retrieving"; from: Point; progress: number }
-  | {
-      state: "Fighting";
-      at: Point;
-      distanceM: number;
-      /**
-       * Tension relative to line strength (1.0 = breaking point).
-       */
-      tension: number;
-      slipping: boolean;
-      reeling: boolean;
-    }
-  | { state: "Landed"; catch: Catch };
+export type RodStateView = { "state": "Idle" } | { "state": "Casting", to: Point, progress: number, } | { "state": "Waiting", at: Point, depthM: number, lying: boolean, } | { "state": "Bite", at: Point, depthM: number, lying: boolean, phase: BitePhase, 
+/**
+ * Seconds into the current phase.
+ */
+phaseT: number, } | { "state": "Retrieving", from: Point, progress: number, } | { "state": "Fighting", at: Point, distanceM: number, 
+/**
+ * Tension relative to line strength (1.0 = breaking point).
+ */
+tension: number, slipping: boolean, reeling: boolean, } | { "state": "Landed", catch: Catch, } | { "state": "Lure", at: Point, distanceM: number, depthM: number, 
+/**
+ * Water depth under the lure.
+ */
+bottomM: number, reeling: boolean, } | { "state": "Snagged", at: Point, };

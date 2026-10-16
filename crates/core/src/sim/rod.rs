@@ -34,6 +34,8 @@ pub struct Tackle {
     pub drag_kg: f64,
     /// Float rods: distance from float to hook.
     pub float_depth_m: f64,
+    /// Spinning: retrieve speed while reeling, m/s.
+    pub retrieve_mps: f64,
     pub bait: String,
 }
 
@@ -47,6 +49,7 @@ impl Tackle {
             reel_speed_mps: 1.0,
             drag_kg: 1.8,
             float_depth_m: 1.5,
+            retrieve_mps: 0.0,
             bait: "worm".into(),
         }
     }
@@ -60,7 +63,22 @@ impl Tackle {
             reel_speed_mps: 1.2,
             drag_kg: 2.4,
             float_depth_m: 0.0,
+            retrieve_mps: 0.0,
             bait: "maggot".into(),
+        }
+    }
+
+    pub fn starter_spinning() -> Self {
+        Self {
+            kind: RodKind::Spinning,
+            max_cast_m: 40.0,
+            line_strength_kg: 6.0,
+            line_length_m: 150.0,
+            reel_speed_mps: 1.0,
+            drag_kg: 3.0,
+            float_depth_m: 0.0,
+            retrieve_mps: 0.7,
+            bait: "spinner".into(),
         }
     }
 
@@ -124,6 +142,17 @@ pub enum RodState {
         at: Point,
         cell: Cell,
         bite: BiteState,
+        /// Set when the bite came on a lure retrieve; the retrieve resumes on a miss.
+        lure: Option<super::spin::LureRun>,
+    },
+    /// Spinning: lure in the water, being retrieved or paused.
+    Lure {
+        run: super::spin::LureRun,
+        calm: f64,
+    },
+    /// Spinning: lure caught on a snag or weed.
+    Snagged {
+        run: super::spin::LureRun,
     },
     Fighting {
         origin: Point,

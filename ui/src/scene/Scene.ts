@@ -33,6 +33,7 @@ class RodGfx {
   /** Smoothed rig position (screen px) while fighting. */
   fightPos: Vec | null = null;
   lastNibbleRipple = 0;
+  lastWake = 0;
 
   constructor() {
     this.floatBody.mask = this.floatMask;
@@ -262,6 +263,23 @@ export class Scene {
         }
         break;
       }
+      case "Lure": {
+        target = this.toScreen(st.at);
+        scale = this.scaleAt(st.at.y);
+        tension = st.reeling ? 0.45 : 0.1;
+        // A shallow lure on the retrieve leaves a wake.
+        if (st.reeling && st.depthM < 0.6 && this.time - g.lastWake > 0.18) {
+          g.lastWake = this.time;
+          this.addRipple(target, scale, 0.25);
+        }
+        break;
+      }
+      case "Snagged":
+        target = this.toScreen(st.at);
+        scale = this.scaleAt(st.at.y);
+        tension = 0.9;
+        tipKick = 0.02 + Math.sin(this.time * 20) * 0.003;
+        break;
       case "Fighting": {
         const p = this.toScreen(st.at);
         if (!g.fightPos) g.fightPos = { ...p };

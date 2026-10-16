@@ -56,7 +56,7 @@ pub fn start_session(
             vec![
                 Tackle::starter_float(),
                 Tackle::starter_feeder(),
-                Tackle::starter_feeder(),
+                Tackle::starter_spinning(),
             ],
         )
         .map_err(|e| e.to_string())

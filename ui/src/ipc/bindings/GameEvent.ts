@@ -4,13 +4,4 @@ import type { Catch } from "./Catch";
 /**
  * Something noteworthy that happened during a tick (sounds, toasts).
  */
-export type GameEvent =
-  | { type: "CastLanded"; rod: number }
-  | { type: "CastOnLand"; rod: number }
-  | { type: "Bite"; rod: number }
-  | { type: "Hooked"; rod: number }
-  | { type: "Missed"; rod: number }
-  | { type: "FishLeft"; rod: number }
-  | { type: "LineBroke"; rod: number }
-  | { type: "Escaped"; rod: number }
-  | { type: "Landed"; rod: number; catch: Catch };
+export type GameEvent = { "type": "CastLanded", rod: number, } | { "type": "CastOnLand", rod: number, } | { "type": "Bite", rod: number, } | { "type": "Hooked", rod: number, } | { "type": "Missed", rod: number, } | { "type": "FishLeft", rod: number, } | { "type": "LineBroke", rod: number, } | { "type": "Escaped", rod: number, } | { "type": "Landed", rod: number, catch: Catch, } | { "type": "Snagged", rod: number, } | { "type": "Unsnagged", rod: number, };

@@ -13,6 +13,8 @@ const EVENT_TOASTS: Partial<Record<GameEvent["type"], [string, "info" | "bad" | 
   FishLeft: ["Рыба отошла", "info"],
   LineBroke: ["Обрыв лески!", "bad"],
   Escaped: ["Сход!", "bad"],
+  Snagged: ["Зацеп! ПКМ — попробовать отцепить", "bad"],
+  Unsnagged: ["Отцепилась!", "good"],
 };
 
 function playEventSound(e: GameEvent): void {
@@ -32,6 +34,9 @@ function playEventSound(e: GameEvent): void {
       break;
     case "LineBroke":
       sfx.snap();
+      break;
+    case "Snagged":
+      sfx.click(0.4);
       break;
   }
 }
@@ -101,8 +106,9 @@ export function App() {
     const id = setInterval(() => {
       const s = useGame.getState().snapshot?.session;
       const st = s?.rods[s.activeRod]?.state;
-      if (st?.state !== "Fighting") return;
       acc += 1;
+      if (st?.state === "Lure" && st.reeling && acc % 3 === 0) sfx.click(0.05);
+      if (st?.state !== "Fighting") return;
       if (st.slipping) sfx.click(0.18);
       else if (st.reeling && acc % 2 === 0) sfx.click(0.07);
     }, 45);
@@ -206,6 +212,7 @@ export function App() {
         sendInput({ type: "Strike", rod: a.index });
         break;
       case "Fighting":
+      case "Lure":
         sendInput({ type: "Reel", rod: a.index, on: true });
         (e.target as Element).setPointerCapture(e.pointerId);
         break;
@@ -220,8 +227,13 @@ export function App() {
   const onWheel = (e: React.WheelEvent) => {
     const a = activeRod();
     if (!a) return;
-    const step = e.deltaY < 0 ? 0.1 : -0.1;
-    sendInput({ type: "SetDrag", rod: a.index, kg: a.rod.dragKg + step });
+    const up = e.deltaY < 0;
+    if (a.rod.state.state === "Lure") {
+      const mps = a.rod.retrieveMps + (up ? 0.05 : -0.05);
+      sendInput({ type: "SetRetrieveSpeed", rod: a.index, mps });
+    } else {
+      sendInput({ type: "SetDrag", rod: a.index, kg: a.rod.dragKg + (up ? 0.1 : -0.1) });
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent) => {

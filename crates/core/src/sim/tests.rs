@@ -28,6 +28,7 @@ fn content() -> Arc<Content> {
         id: "worm".into(),
         name: "Червь".into(),
         kind: BaitKind::Natural,
+        lure: None,
     }];
     let locations = vec![LocationDef {
         id: "pond".into(),
@@ -244,4 +245,111 @@ fn feeder_cast_lays_groundbait() {
     let s = w.session().unwrap();
     assert_eq!(s.groundbait.len(), 1);
     assert_eq!(s.active, 1, "casting selects the rod");
+}
+
+/// Content with a lure and a predator that takes it, for spinning tests.
+fn spinning_world(seed: u64) -> World {
+    let mut c = Arc::try_unwrap(content()).unwrap();
+    let mut fish = c.fish.clone();
+    fish.push(FishDef {
+        id: "pike".into(),
+        name: "Щука".into(),
+        weight: WeightDist {
+            min: 0.5,
+            typical: 1.0,
+            max: 3.0,
+        },
+        trophy_kg: 2.0,
+        horizon: Horizon::Any,
+        depth: Range { min: 0.5, max: 4.0 },
+        activity: vec![],
+        baits: BTreeMap::from([("spinner".to_string(), 1.0)]),
+        strength: 1.5,
+        bite: BiteStyle::Predator,
+        price_per_kg: 100.0,
+        xp_per_kg: 10.0,
+    });
+    let mut baits = c.baits.clone();
+    baits.push(BaitDef {
+        id: "spinner".into(),
+        name: "Вертушка".into(),
+        kind: BaitKind::Lure,
+        lure: Some(LureDef {
+            speed: Range { min: 0.5, max: 0.9 },
+            depth: 0.8,
+            sink_mps: 0.3,
+            pause: 0.2,
+        }),
+    });
+    let mut locations = std::mem::take(&mut c.locations);
+    locations[0].spots[0].zones[0]
+        .fish
+        .insert("pike".to_string(), 1.0);
+    let content = Arc::new(Content::new(fish, baits, locations).unwrap());
+    let mut w = World::new(content, seed);
+    w.start_session("pond", "dam", map(), vec![Tackle::starter_spinning()])
+        .unwrap();
+    w
+}
+
+#[test]
+fn spinning_retrieve_gets_strikes() {
+    let mut w = spinning_world(5);
+    let mut strikes = 0;
+    for _ in 0..30 {
+        w.input(Input::Cast {
+            rod: 0,
+            x: 0.5,
+            y: 0.5,
+        })
+        .unwrap();
+        run_until(&mut w, 400, |e| matches!(e, GameEvent::CastLanded { .. }));
+        w.input(Input::Reel { rod: 0, on: true }).unwrap();
+        // Reel until the lure is back, a fish is on, or the bite times out.
+        for _ in 0..20 * 120 {
+            w.step();
+            if w.drain_events()
+                .iter()
+                .any(|e| matches!(e, GameEvent::Bite { .. }))
+            {
+                strikes += 1;
+            }
+            let st = &w.session().unwrap().rods[0].state;
+            if matches!(st, RodState::Idle) {
+                break;
+            }
+            if matches!(st, RodState::Fighting { .. } | RodState::Landed { .. }) {
+                // Reset the rod for the next cast.
+                w.rods_mut()[0].state = RodState::Idle;
+                break;
+            }
+        }
+    }
+    assert!(strikes >= 5, "only {strikes} strikes in 30 retrieves");
+}
+
+#[test]
+fn spinning_rejects_natural_bait() {
+    let mut w = spinning_world(1);
+    assert!(matches!(
+        w.input(Input::SetBait {
+            rod: 0,
+            bait: "worm".into()
+        }),
+        Err(SimError::WrongBait(_))
+    ));
+}
+
+#[test]
+fn snagged_lure_is_freed_or_lost_on_pull() {
+    let mut w = spinning_world(3);
+    let view = w.session().unwrap().spot.view;
+    let run = spin::LureRun::new(Point { x: 0.5, y: 0.7 }, &view);
+    w.rods_mut()[0].state = RodState::Snagged { run };
+    w.input(Input::Retrieve { rod: 0 }).unwrap();
+    let ev = w.drain_events();
+    assert!(
+        ev.iter()
+            .any(|e| matches!(e, GameEvent::Unsnagged { .. } | GameEvent::LineBroke { .. }))
+    );
 }

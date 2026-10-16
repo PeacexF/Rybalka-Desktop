@@ -3,15 +3,8 @@
 /**
  * A landed fish.
  */
-export type Catch = {
-  id: number;
-  fishId: string;
-  name: string;
-  weightKg: number;
-  trophy: boolean;
-  bait: string;
-  /**
-   * Game minutes when landed.
-   */
-  atMin: number;
-};
+export type Catch = { id: number, fishId: string, name: string, weightKg: number, trophy: boolean, bait: string, 
+/**
+ * Game minutes when landed.
+ */
+atMin: number, };

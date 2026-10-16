@@ -6,17 +6,4 @@ import type { Patch } from "./Patch";
 import type { RodView } from "./RodView";
 import type { View } from "./View";
 
-export type SessionView = {
-  locationId: string;
-  spotId: string;
-  spotName: string;
-  background: string;
-  map: string;
-  view: View;
-  clock: ClockView;
-  activeRod: number;
-  rods: Array<RodView>;
-  keepnet: Array<Catch>;
-  groundbait: Array<Patch>;
-  debug: DebugView | null;
-};
+export type SessionView = { locationId: string, spotId: string, spotName: string, background: string, map: string, view: View, clock: ClockView, activeRod: number, rods: Array<RodView>, keepnet: Array<Catch>, groundbait: Array<Patch>, debug: DebugView | null, };

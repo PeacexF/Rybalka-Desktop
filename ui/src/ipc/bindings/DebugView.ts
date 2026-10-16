@@ -3,9 +3,8 @@
 /**
  * Developer overlay data (F3).
  */
-export type DebugView = {
-  /**
-   * Per rod: `(fish name, bites per minute)`.
-   */
-  biteRates: Array<Array<[string, number]>>;
-};
+export type DebugView = { 
+/**
+ * Per rod: `(fish name, bites per minute)`.
+ */
+biteRates: Array<Array<[string, number]>>, };

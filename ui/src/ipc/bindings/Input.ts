@@ -3,15 +3,4 @@
 /**
  * Player commands. Rod indexes refer to [`SessionView::rods`].
  */
-export type Input =
-  | { type: "Cast"; rod: number; x: number; y: number }
-  | { type: "Strike"; rod: number }
-  | { type: "Reel"; rod: number; on: boolean }
-  | { type: "Retrieve"; rod: number }
-  | { type: "SetDrag"; rod: number; kg: number }
-  | { type: "SetFloatDepth"; rod: number; m: number }
-  | { type: "SetBait"; rod: number; bait: string }
-  | { type: "SelectRod"; rod: number }
-  | { type: "KeepCatch"; rod: number }
-  | { type: "ReleaseCatch"; rod: number }
-  | { type: "FastForward"; on: boolean };
+export type Input = { "type": "Cast", rod: number, x: number, y: number, } | { "type": "Strike", rod: number, } | { "type": "Reel", rod: number, on: boolean, } | { "type": "Retrieve", rod: number, } | { "type": "SetDrag", rod: number, kg: number, } | { "type": "SetFloatDepth", rod: number, m: number, } | { "type": "SetRetrieveSpeed", rod: number, mps: number, } | { "type": "SetBait", rod: number, bait: string, } | { "type": "SelectRod", rod: number, } | { "type": "KeepCatch", rod: number, } | { "type": "ReleaseCatch", rod: number, } | { "type": "FastForward", on: boolean, };

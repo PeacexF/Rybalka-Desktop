@@ -58,6 +58,7 @@ pub struct RodView {
     pub drag_kg: f64,
     pub line_strength_kg: f64,
     pub max_cast_m: f64,
+    pub retrieve_mps: f64,
     pub state: RodStateView,
 }
 
@@ -97,6 +98,17 @@ pub enum RodStateView {
     },
     Landed {
         catch: Catch,
+    },
+    Lure {
+        at: Point,
+        distance_m: f64,
+        depth_m: f64,
+        /// Water depth under the lure.
+        bottom_m: f64,
+        reeling: bool,
+    },
+    Snagged {
+        at: Point,
     },
 }
 
@@ -159,7 +171,7 @@ impl World {
                     lying,
                 }
             }
-            RodState::Bite { at, cell, bite } => {
+            RodState::Bite { at, cell, bite, .. } => {
                 let (_, lying) = r.tackle.bait_depth(cell);
                 RodStateView::Bite {
                     at: *at,
@@ -183,6 +195,19 @@ impl World {
             RodState::Landed { catch } => RodStateView::Landed {
                 catch: catch.clone(),
             },
+            RodState::Lure { run, .. } => {
+                let at = run.point(&s.spot.view);
+                RodStateView::Lure {
+                    at,
+                    distance_m: run.distance_m,
+                    depth_m: run.depth_m,
+                    bottom_m: s.map.sample(at.x, at.y).map_or(0.0, |c| c.depth_m),
+                    reeling: run.reeling,
+                }
+            }
+            RodState::Snagged { run } => RodStateView::Snagged {
+                at: run.point(&s.spot.view),
+            },
         };
         RodView {
             kind: t.kind,
@@ -196,11 +221,33 @@ impl World {
             drag_kg: t.drag_kg,
             line_strength_kg: t.line_strength_kg,
             max_cast_m: t.max_cast_m,
+            retrieve_mps: t.retrieve_mps,
             state,
         }
     }
 
     fn debug_rates(&self, s: &Session, r: &Rod) -> Vec<(String, f64)> {
+        if let RodState::Lure { run, .. } = &r.state {
+            let at = run.point(&s.spot.view);
+            let lure = self.content.bait(&r.tackle.bait).and_then(|b| b.lure);
+            let (Some(cell), Some(lure)) = (s.map.sample(at.x, at.y), lure) else {
+                return Vec::new();
+            };
+            let Some(zone) = s.spot.zone(cell.zone) else {
+                return Vec::new();
+            };
+            let p = Presentation {
+                cell,
+                bait_depth_m: run.depth_m,
+                bait: &r.tackle.bait,
+                hour: s.clock.hour(),
+                bonus: run.attraction(&lure, r.tackle.retrieve_mps),
+            };
+            return bite::rates(&self.content, zone, &p)
+                .into_iter()
+                .map(|(f, rate)| (f.name.clone(), rate * 60.0))
+                .collect();
+        }
         let (RodState::Waiting { at, cell, .. } | RodState::Bite { at, cell, .. }) = &r.state
         else {
             return Vec::new();

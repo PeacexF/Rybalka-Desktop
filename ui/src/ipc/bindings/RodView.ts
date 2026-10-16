@@ -2,13 +2,4 @@
 import type { RodKind } from "./RodKind";
 import type { RodStateView } from "./RodStateView";
 
-export type RodView = {
-  kind: RodKind;
-  bait: string;
-  baitName: string;
-  floatDepthM: number;
-  dragKg: number;
-  lineStrengthKg: number;
-  maxCastM: number;
-  state: RodStateView;
-};
+export type RodView = { kind: RodKind, bait: string, baitName: string, floatDepthM: number, dragKg: number, lineStrengthKg: number, maxCastM: number, retrieveMps: number, state: RodStateView, };

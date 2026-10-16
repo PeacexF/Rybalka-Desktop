@@ -10,10 +10,10 @@
             // Must match assets/locations/pond/willow/map.ron
             view: (horizonY: 0.53, shoreY: 1.0, nearM: 5.0),
             zones: [
-                (id: 1, name: "Плёс", fish: {"roach": 1.0, "perch": 0.6, "crucian": 0.4, "ruffe": 0.4, "carp": 0.15, "bream": 0.2}),
-                (id: 2, name: "Под дальним берегом", fish: {"crucian": 1.6, "tench": 0.8, "carp": 0.5, "roach": 0.6, "perch": 0.3}),
-                (id: 3, name: "Под берёзой", fish: {"perch": 1.4, "roach": 0.7, "tench": 0.6, "carp": 0.4, "crucian": 0.3}),
-                (id: 4, name: "Старое русло", fish: {"bream": 1.2, "roach": 1.0, "ruffe": 0.8, "perch": 0.6, "carp": 0.3}),
+                (id: 1, name: "Плёс", fish: {"roach": 1.0, "perch": 0.6, "crucian": 0.4, "ruffe": 0.4, "carp": 0.15, "bream": 0.2, "pike": 0.3}),
+                (id: 2, name: "Под дальним берегом", fish: {"crucian": 1.6, "tench": 0.8, "carp": 0.5, "roach": 0.6, "perch": 0.3, "pike": 0.9}),
+                (id: 3, name: "Под берёзой", fish: {"perch": 1.4, "roach": 0.7, "tench": 0.6, "carp": 0.4, "crucian": 0.3, "pike": 0.8}),
+                (id: 4, name: "Старое русло", fish: {"bream": 1.2, "roach": 1.0, "ruffe": 0.8, "perch": 0.6, "carp": 0.3, "zander": 0.7}),
             ],
         ),
     ],

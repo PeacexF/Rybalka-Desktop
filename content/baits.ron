@@ -6,4 +6,31 @@
     (id: "bread", name: "Хлеб", kind: Natural),
     (id: "corn", name: "Кукуруза", kind: Natural),
     (id: "barley", name: "Перловка", kind: Natural),
+
+    // Приманки. speed — рабочая скорость проводки (м/с), depth — глубина хода при проводке,
+    // sink_mps — вертикальная скорость на паузе (+ тонет, − всплывает), pause — уловистость на паузе.
+    (
+        id: "spinner",
+        name: "Вертушка №2",
+        kind: Lure,
+        lure: Some((speed: (min: 0.5, max: 0.9), depth: 0.8, sink_mps: 0.3, pause: 0.15)),
+    ),
+    (
+        id: "spoon",
+        name: "Колебалка",
+        kind: Lure,
+        lure: Some((speed: (min: 0.6, max: 1.1), depth: 1.6, sink_mps: 0.7, pause: 0.35)),
+    ),
+    (
+        id: "wobbler",
+        name: "Воблер-минноу",
+        kind: Lure,
+        lure: Some((speed: (min: 0.4, max: 0.9), depth: 1.2, sink_mps: -0.15, pause: 0.6)),
+    ),
+    (
+        id: "jig",
+        name: "Джиг с твистером",
+        kind: Lure,
+        lure: Some((speed: (min: 0.3, max: 0.6), depth: 0.3, sink_mps: 0.9, pause: 1.1)),
+    ),
 ]
