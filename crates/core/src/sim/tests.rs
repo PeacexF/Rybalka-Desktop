@@ -29,6 +29,9 @@ fn content() -> Arc<Content> {
         id: "worm".into(),
         name: "Червь".into(),
         kind: BaitKind::Natural,
+        price: 20.0,
+        pack: 20,
+        rank: 0,
         lure: None,
     }];
     let locations = vec![LocationDef {
@@ -276,6 +279,9 @@ fn spinning_world(seed: u64) -> World {
         id: "spinner".into(),
         name: "Вертушка".into(),
         kind: BaitKind::Lure,
+        price: 90.0,
+        pack: 1,
+        rank: 0,
         lure: Some(LureDef {
             speed: Range { min: 0.5, max: 0.9 },
             depth: 0.8,

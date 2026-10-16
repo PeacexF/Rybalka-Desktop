@@ -43,7 +43,8 @@ pub fn load_dir(dir: &Path) -> Result<Content, ContentError> {
         .map(|p| read_ron::<LocationDef>(p))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Content::new(fish, baits, locations)
+    let gear: super::GearCatalog = read_ron(&dir.join("gear.ron"))?;
+    Content::new(fish, baits, locations)?.with_gear(gear)
 }
 
 fn read_ron<T: DeserializeOwned>(path: &Path) -> Result<T, ContentError> {
@@ -55,6 +56,30 @@ fn read_ron<T: DeserializeOwned>(path: &Path) -> Result<T, ContentError> {
         path: path.to_owned(),
         source: Box::new(source),
     })
+}
+
+pub(super) fn validate_gear(c: &Content) -> Result<(), ContentError> {
+    let invalid = |msg: String| Err(ContentError::Invalid(msg));
+    for item in c.items() {
+        if item.price() < 0.0 || item.pack() == 0 {
+            return invalid(format!("item `{}`: bad price or pack", item.id()));
+        }
+    }
+    let st = &c.gear.starter;
+    for id in st.items.keys() {
+        if c.item(id).is_none() {
+            return invalid(format!("starter: unknown item `{id}`"));
+        }
+    }
+    for (i, slot) in st.slots.iter().enumerate() {
+        let parts = [&slot.rod, &slot.reel, &slot.line, &slot.bait];
+        for id in parts.into_iter().flatten() {
+            if !st.items.contains_key(id) {
+                return invalid(format!("starter slot {i}: `{id}` is not in starter items"));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn validate(c: &Content) -> Result<(), ContentError> {

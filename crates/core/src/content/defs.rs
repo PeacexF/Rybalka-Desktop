@@ -121,6 +121,14 @@ pub struct BaitDef {
     pub id: String,
     pub name: String,
     pub kind: BaitKind,
+    /// Price of one pack.
+    #[serde(default)]
+    pub price: f64,
+    /// Units per pack (portions of bait, lures come singly).
+    #[serde(default = "one")]
+    pub pack: u32,
+    #[serde(default)]
+    pub rank: u32,
     /// Required for `Lure`s.
     #[serde(default)]
     pub lure: Option<LureDef>,
@@ -215,6 +223,10 @@ pub struct ZoneDef {
     pub name: String,
     /// Fish id → population weight in this zone.
     pub fish: BTreeMap<String, f64>,
+}
+
+fn one() -> u32 {
+    1
 }
 
 #[cfg(test)]
