@@ -5,6 +5,7 @@ import { Toasts } from "./hud/Toasts";
 import { Hub } from "./screens/Hub";
 import { MainMenu } from "./screens/MainMenu";
 import { Settings } from "./screens/Settings";
+import { Splash } from "./screens/Splash";
 import { Water } from "./screens/Water";
 import { useGame } from "./store/game";
 import { initSettings, useSettings } from "./store/settings";
@@ -51,6 +52,7 @@ export function App() {
 
   return (
     <>
+      {screen === "loading" && !error && <Splash />}
       {screen === "water" && <Water />}
       {screen === "hub" && <Hub />}
       {screen === "menu" && <MainMenu />}
