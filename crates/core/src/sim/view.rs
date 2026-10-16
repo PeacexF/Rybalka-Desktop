@@ -46,6 +46,8 @@ pub struct ProfileView {
     /// Fractional hour `0..24`.
     pub hour: f64,
     pub trip: Option<TripView>,
+    /// Tutorial tips already closed.
+    pub tips_seen: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -99,6 +101,7 @@ impl ProfileView {
                     can_sleep: p.next_morning().is_ok(),
                 }
             }),
+            tips_seen: p.tips_seen.iter().cloned().collect(),
         }
     }
 }

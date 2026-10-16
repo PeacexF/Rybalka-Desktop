@@ -76,6 +76,7 @@ pub fn run() {
             commands::input,
             commands::set_debug,
             commands::set_time_speed,
+            commands::dismiss_tip,
             commands::baits,
             commands::log_ui,
         ])

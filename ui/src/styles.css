@@ -1159,3 +1159,35 @@ button.link {
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
+
+/* Tutorial tips */
+.tip {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 32px));
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: rgba(232, 184, 74, 0.5);
+  line-height: 1.45;
+}
+
+.tip.on-water {
+  top: 12px;
+  bottom: auto;
+}
+
+.tip-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+}
+
+.tip-actions .link {
+  color: var(--dim);
+  font-size: 12px;
+}

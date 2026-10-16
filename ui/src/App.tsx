@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { baits, catalog, locations, subscribe } from "./ipc/game";
+import { baits, catalog, continueGame, locations, subscribe } from "./ipc/game";
+import { Tips } from "./hud/Tips";
 import { Toasts } from "./hud/Toasts";
 import { Hub } from "./screens/Hub";
 import { MainMenu } from "./screens/MainMenu";
@@ -36,6 +37,15 @@ export function App() {
       .then(([baits, catalog, locations]) =>
         useGame.getState().setStatic({ baits, catalog, locations }),
       )
+      // `VITE_DEV_CONTINUE=1 npm run tauri dev` skips the main menu.
+      .then(() => {
+        if (
+          import.meta.env.DEV &&
+          import.meta.env.VITE_DEV_CONTINUE &&
+          !useGame.getState().snapshot?.profile
+        )
+          return continueGame();
+      })
       .catch((e) => setError(String(e)));
   }, []);
 
@@ -45,6 +55,7 @@ export function App() {
       {screen === "hub" && <Hub />}
       {screen === "menu" && <MainMenu />}
       <div className="overlay">
+        <Tips />
         <Settings />
         <Toasts />
         {error && <div className="fatal">{error}</div>}

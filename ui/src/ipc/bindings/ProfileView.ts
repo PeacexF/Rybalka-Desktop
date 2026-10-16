@@ -22,4 +22,8 @@ keepnet: number, keepnetKg: number, day: number,
 /**
  * Fractional hour `0..24`.
  */
-hour: number, trip: TripView | null, };
+hour: number, trip: TripView | null, 
+/**
+ * Tutorial tips already closed.
+ */
+tipsSeen: Array<string>, };

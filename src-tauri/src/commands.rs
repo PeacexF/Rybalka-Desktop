@@ -275,6 +275,13 @@ pub fn set_debug(game: State<'_, GameHandle>, on: bool) -> Result<(), String> {
     game.with_world(move |w| w.debug = on)
 }
 
+/// Close a tutorial tip for good (`"all"` turns tips off).
+#[tauri::command]
+pub fn dismiss_tip(game: State<'_, GameHandle>, id: String) -> Result<(), String> {
+    game.with_world(move |w| w.update_profile(|p, _| p.dismiss_tip(&id)))?
+        .map_err(|e| e.to_string())
+}
+
 /// Game minutes per real minute (settings).
 #[tauri::command]
 pub fn set_time_speed(game: State<'_, GameHandle>, speed: f64) -> Result<(), String> {

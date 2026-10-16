@@ -4,7 +4,7 @@
 //! clock, rod settings) lives in the session and is synced back with
 //! [`crate::World::sync_profile`].
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -63,7 +63,12 @@ pub struct Profile {
     pub trip: Option<Trip>,
     /// Personal bests by fish id.
     pub records: BTreeMap<String, Record>,
+    /// Tutorial tips the player has closed ([`ALL_TIPS`] turns them all off).
+    pub tips_seen: BTreeSet<String>,
 }
+
+/// Tip id that stands for "no more tips".
+pub const ALL_TIPS: &str = "all";
 
 /// A paid stay at a water.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -89,6 +94,7 @@ impl Default for Profile {
             at: None,
             trip: None,
             records: BTreeMap::new(),
+            tips_seen: BTreeSet::new(),
         }
     }
 }
@@ -240,6 +246,14 @@ impl Profile {
             self.trip = None;
             self.at = None;
         }
+    }
+
+    pub fn tip_seen(&self, id: &str) -> bool {
+        self.tips_seen.contains(id) || self.tips_seen.contains(ALL_TIPS)
+    }
+
+    pub fn dismiss_tip(&mut self, id: &str) {
+        self.tips_seen.insert(id.to_owned());
     }
 
     pub fn rank(&self) -> u32 {
@@ -914,5 +928,17 @@ mod tests {
         let old: Profile = serde_json::from_str(r#"{"money": 5}"#).unwrap();
         assert_eq!(old.money, 5.0);
         assert_eq!(old.slots.len(), SLOTS);
+        assert!(old.tips_seen.is_empty());
+    }
+
+    #[test]
+    fn tips_are_remembered() {
+        let mut p = Profile::default();
+        assert!(!p.tip_seen("cast"));
+        p.dismiss_tip("cast");
+        assert!(p.tip_seen("cast"));
+        assert!(!p.tip_seen("fight"));
+        p.dismiss_tip(ALL_TIPS);
+        assert!(p.tip_seen("fight"));
     }
 }
