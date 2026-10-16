@@ -36,3 +36,6 @@ dist-ssr
 *.sln
 *.sw?
 notes/
+# Rust / Tauri
+target/
+src-tauri/gen/schemas/

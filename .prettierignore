@@ -1,0 +1,6 @@
+target
+ui/dist
+src-tauri/gen
+notes
+package-lock.json
+*.md
