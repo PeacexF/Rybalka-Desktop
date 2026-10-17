@@ -29,7 +29,7 @@
         (id: "groundbait", name: "Прикормка", kind: Groundbait, pack: 10, price: 80, rank: 1),
     ],
     starter: (
-        money: 1000,
+        money: 300,
         items: {
             "rod_float_4m": 1, "reel_1000": 1, "line_016": 1,
             "hooks": 15, "floats": 4, "worm": 40, "maggot": 25,
