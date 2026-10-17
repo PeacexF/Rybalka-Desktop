@@ -4,7 +4,7 @@
     kind: Lake,
     description: "Чистое озеро в сосновом бору. Окунь у мостков, щука в траве, на глубине — лещ и густера.",
     rank: 1,
-    price_per_day: 200,
+    price_per_day: 300,
     max_days: 5,
     spots: [
         (

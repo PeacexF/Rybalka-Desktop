@@ -4,7 +4,7 @@
     kind: Reservoir,
     description: "Большая вода: затопленное русло, каменные гряды и коряжник. Трофейный лещ, судак, карп и щука.",
     rank: 3,
-    price_per_day: 900,
+    price_per_day: 1500,
     max_days: 7,
     spots: [
         (

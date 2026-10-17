@@ -4,7 +4,7 @@
     kind: River,
     description: "Песчаные косы, перекаты и ямы. Голавль и язь, на рассвете бьёт жерех, в ямах — судак и лещ.",
     rank: 2,
-    price_per_day: 450,
+    price_per_day: 700,
     max_days: 5,
     spots: [
         (
