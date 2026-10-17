@@ -3166,7 +3166,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rybalka-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "png 0.18.1",
  "ron",
@@ -3178,7 +3178,7 @@ dependencies = [
 
 [[package]]
 name = "rybalka-desktop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rusqlite",
  "rybalka-core",
@@ -3191,7 +3191,7 @@ dependencies = [
 
 [[package]]
 name = "rybalka-devtools"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "image",
  "png 0.18.1",
